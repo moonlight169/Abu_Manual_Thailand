@@ -1,1 +1,2 @@
 #define MAC_PS5 "D4:2F:4B:00:DB:AB"
+#define COMMAND_RATE 50

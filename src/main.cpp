@@ -1,15 +1,19 @@
 #include <Arduino.h>
 #include <ps5Controller.h>
+
 #include "config.h"
+#include "PS5Input.h"
+
+PS5Input joyInput;
 
 void setup(){
     Serial.begin(115200);
-    ps5.begin(MAC_PS5); 
+    joyInput.begin();
 }
 
 void loop() {
-    if (ps5.isConnected()) {
-        Serial.println("PS5 Controller Connected!");
+    joyInput.update();
+    if (joyInput.isConnected()) {
+        joyInput.printLog(Serial);
     }
-    delay(1000);
 }
