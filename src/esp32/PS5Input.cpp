@@ -1,5 +1,5 @@
 #include "PS5Input.h"
-#include "config.h"
+#include "config_esp32.h"
 
 void PS5Input::begin(){
     ps5.begin(MAC_PS5);

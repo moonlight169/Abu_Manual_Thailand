@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <ps5Controller.h>
 
-#include "config.h"
+#include "config_esp32.h"
 #include "PS5Input.h"
 
 PS5Input joyInput;
