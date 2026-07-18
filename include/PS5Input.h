@@ -20,9 +20,7 @@ public:
 
 private:
     cmd_vel velocity;
-    const int deadzoneThreshold = 15;
     unsigned long prev_control_time = 0;
-    int applyDeadzone(int value);
 };
 
 #endif

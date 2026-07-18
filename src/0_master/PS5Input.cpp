@@ -6,13 +6,6 @@ void PS5Input::begin(){
     Serial.println("PS5 Connected");
 }
 
-int PS5Input::applyDeadzone(int value){
-    if (abs(value) < deadzoneThreshold) {
-        return 0;
-    }
-    return value;
-}
-
 void PS5Input::update(){
     unsigned long now = millis();
 
@@ -20,17 +13,21 @@ void PS5Input::update(){
         prev_control_time = now;
 
         if (ps5.isConnected()){
-            int rawX = ps5.LStickY();
-            int rawY = ps5.RStickX();
-            int rawW = ps5.LStickX();
+            float x = 0.000;
+            float y = 0.000;
+            float w = 0.000;
 
-            int filteredX = applyDeadzone(rawX);
-            int filteredY = applyDeadzone(rawY);
-            int filteredW = applyDeadzone(rawW);
+            if (ps5.Up())    x += 1.000;
+            if (ps5.Down())  x -= 1.000;
+            if (ps5.Right()) y += 1.000;
+            if (ps5.Left())  y -= 1.000;
 
-            velocity.valX = (float)filteredX / 128.0;
-            velocity.valY = (float)filteredY / 128.0;
-            velocity.valW = (float)filteredW / 128.0;
+            if (ps5.R1()) w += 1.000;
+            if (ps5.L1()) w -= 1.000;
+
+            velocity.valX = x;
+            velocity.valY = y;
+            velocity.valW = w;
         } else {
             velocity.valX = 0.000;
             velocity.valY = 0.000;
