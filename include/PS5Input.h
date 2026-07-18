@@ -6,6 +6,11 @@
 
 class PS5Input{
 public:
+    enum PS5Button {
+        Cross, Circle, Triangle, Square,
+        L1, R1, Up, Down, Left, Right
+    };
+
     struct cmd_vel {
         float valX = 0.000;
         float valY = 0.000;
@@ -14,6 +19,8 @@ public:
 
     void begin();
     void update();
+    bool isPressed(PS5Button btn);
+    bool wasPressed(PS5Button btn);
     cmd_vel getVelocity();
     bool isConnected();
     void printLog(HardwareSerial &serialPort);
@@ -21,6 +28,11 @@ public:
 private:
     cmd_vel velocity;
     unsigned long prev_control_time = 0;
+
+    uint16_t currentButtons = 0;
+    uint16_t prevButtons = 0;
+
+    uint16_t readRawButtons();
 };
 
 #endif
