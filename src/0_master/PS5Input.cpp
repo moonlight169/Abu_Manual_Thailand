@@ -52,10 +52,11 @@ uint16_t PS5Input::readRawButtons(){
     if (ps5.Square())   buttons |= (1 << Square);
     if (ps5.L1())       buttons |= (1 << L1);
     if (ps5.R1())       buttons |= (1 << R1);
-    if (ps5.Up())       buttons |= (1 << Up);
-    if (ps5.Down())     buttons |= (1 << Down);
-    if (ps5.Left())     buttons |= (1 << Left);
-    if (ps5.Right())    buttons |= (1 << Right);
+    if (ps5.L2())       buttons |= (1 << L2);
+    if (ps5.R2())     buttons |= (1 << R2);
+    if (ps5.Share())     buttons |= (1 << Share);
+    if (ps5.Options())    buttons |= (1 << Options);
+    if (ps5.Touchpad())    buttons |= (1 << Touchpad);
 
     return buttons;
 }

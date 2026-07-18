@@ -12,7 +12,8 @@ public:
 
     enum PS5Button {
         Cross, Circle, Triangle, Square,
-        L1, R1, Up, Down, Left, Right
+        L1, R1, L2, R2, Share, Options,
+        Touchpad
     };
 
     struct cmd_vel {
