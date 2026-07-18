@@ -27,8 +27,7 @@ public:
 
 private:
     cmd_vel velocity;
-    unsigned long prev_control_time = 0;
-
+    
     uint16_t currentButtons = 0;
     uint16_t prevButtons = 0;
 

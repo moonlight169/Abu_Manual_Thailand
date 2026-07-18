@@ -19,11 +19,11 @@ void setup(){
 }
 
 void loop() {
-    joyInput.update();
     unsigned long now = millis();
     if ((now - prev_wheel_send_time) >= (1000 / COMMAND_RATE)) {
         prev_wheel_send_time = now;
 
+        joyInput.update();
         PS5Input::cmd_vel velocity = joyInput.getVelocity();
         sendWheelCommand(WheelSerial, velocity.valX, velocity.valY, velocity.valW);
     }
