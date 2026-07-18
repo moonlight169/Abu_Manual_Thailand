@@ -24,6 +24,7 @@ Relay relay5(Relay5);
 Relay relay6(Relay6);
 
 HardwareSerial WheelSerial(1);
+HardwareSerial ArmSerial(2);
 
 unsigned long prev_wheel_send_time = 0;
 
@@ -68,6 +69,7 @@ void setup(){
     joyInput.begin();
 
     WheelSerial.begin(WHEEL_UART_BAUD, SERIAL_8N1, WHEEL_UART_RX, WHEEL_UART_TX);
+    ArmSerial.begin(ARM_UART_BAUD, SERIAL_8N1, ARM_UART_RX, ARM_UART_TX);
 }
 
 void loop() {
