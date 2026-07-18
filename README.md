@@ -14,13 +14,22 @@ by.Ittichai Wachiraphiphatkun
 
 ## 🛠️Hardware & Tech Stack
 -   **Master Controller:** ESP32-WROVER-KIT
--   **Slave Controller:** STM32 Blackpill (F411CE)
+-   **Slave Controller:** STM32 Blackpill (F411CE) x2 (Arm, Wheel)
 -   **Wireless Control:** PS5 Controller (via Bluetooth)
+-   **Control Algorithm:** PID Control, Mecanum Kinematics
 -   **Development Environment:** VS Code + PlatformIO (Multi-Environment Setup)
 
 ## 📂 Project Structure
+PlatformIO ใช้ single project แยก 3 Environment ด้วย `build_src_filter` ใน `platformio.ini`
 ```text
 src/
- ├── esp32/ # โค้ดสำหรับ ESP32 (จัดการ Bluetooth PS5 & ส่งข้อมูล)
- └── stm32/ # โค้ดสำหรับ STM32 (รับข้อมูล & ขับมอเตอร์ล้อ Mecanum)
+ ├── 0_master/       # ESP32-WROVER: ศูนย์กลางสั่งการ (Bluetooth PS5, UART, Relay, Limit Switch, IMU)
+ ├── 1_slave_arm/    # STM32: ควบคุม Box + Arm (Up/Down) + Lift (Front/Back)
+ └── 2_slave_wheel/  # STM32: ควบคุมล้อ Mecanum 4 ล้อ (PID loop ความถี่สูง) + อ่าน Encoder
+
+lib/
+ ├── Kinematics/     # Mecanum kinematics library
+ └── PID/            # PID control library
+
+include/             # Header ไฟล์ .h รวมทุก Environment (config_esp32.h, config_stm32.h, ...)
 ```
