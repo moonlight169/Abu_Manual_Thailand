@@ -1,12 +1,5 @@
 #include <Arduino.h>
 #include "wheel.h"
-#include "config_wheels.h"
-
-// ========== Global wheel objects ==========
-Wheel wheelFL(MotorFL_A, MotorFL_B, EncFL_A, EncFL_B, PULSE_PER_REV);
-Wheel wheelFR(MotorFR_A, MotorFR_B, EncFR_A, EncFR_B, PULSE_PER_REV);
-Wheel wheelRL(MotorRL_A, MotorRL_B, EncRL_A, EncRL_B, PULSE_PER_REV);
-Wheel wheelRR(MotorRR_A, MotorRR_B, EncRR_A, EncRR_B, PULSE_PER_REV);
 
 Wheel::Wheel(int motorA, int motorB, int encA, int encB, float ppr)
     : _motor(motorA, motorB), _encoder(encA, encB, ppr) {}

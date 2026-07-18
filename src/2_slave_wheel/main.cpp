@@ -6,10 +6,10 @@
 
 #include "config_wheels.h"
 
-extern Wheel wheelFL;
-extern Wheel wheelFR;
-extern Wheel wheelRL;
-extern Wheel wheelRR;
+Wheel wheelFL(MotorFL_A, MotorFL_B, EncFL_A, EncFL_B, PULSE_PER_REV);
+Wheel wheelFR(MotorFR_A, MotorFR_B, EncFR_A, EncFR_B, PULSE_PER_REV);
+Wheel wheelRL(MotorRL_A, MotorRL_B, EncRL_A, EncRL_B, PULSE_PER_REV);
+Wheel wheelRR(MotorRR_A, MotorRR_B, EncRR_A, EncRR_B, PULSE_PER_REV);
 
 WheelReceiver wheelReceiver;
 
