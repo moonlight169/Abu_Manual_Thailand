@@ -17,11 +17,6 @@ struct WheelCommand{
     float omega;
 };
 
-struct ServoCommand{
-    uint8_t armAngle;
-    uint8_t spinAngle;
-};
-
 struct WheelFrame{
     uint8_t start;
     uint8_t len;
@@ -47,24 +42,8 @@ struct WheelReceiver{
     unsigned long lastReceivedTime = 0;
 };
 
-struct SensorLinkReceiver{
-    ParserState state = WAIT_START;
-    uint8_t cmdId = 0;
-    uint8_t buffer[SENSOR_LINK_BUFFER_SIZE];
-    uint8_t bufferIndex = 0;
-    uint8_t expectedLen = 0;
-
-    ServoCommand lastServoCommand;
-    bool hasNewServoCommand = false;
-
-    unsigned long lastReceivedTime = 0;
-};
-
 uint8_t calculateChecksum(const uint8_t* data, uint8_t len);
 void wheelReceiverFeed(WheelReceiver &receiver, uint8_t incomingByte);
 void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega);
-
-void sensorLinkReceiverFeed(SensorLinkReceiver &receiver, uint8_t incomingByte);
-void sendServoCommand(HardwareSerial &port, uint8_t armAngle, uint8_t spinAngle);
 
 #endif
