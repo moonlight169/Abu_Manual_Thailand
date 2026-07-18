@@ -1,2 +1,3 @@
-#define MAC_PS5 "D4:2F:4B:00:DB:AB"
+#define MAC_PS5_WHITE "D4:2F:4B:00:DB:AB"
+#define MAC_PS5_RED "0c:27:56:1a:0c:6e"
 #define COMMAND_RATE 50

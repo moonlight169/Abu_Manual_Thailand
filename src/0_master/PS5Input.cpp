@@ -2,7 +2,7 @@
 #include "config_esp32.h"
 
 void PS5Input::begin(){
-    ps5.begin(MAC_PS5);
+    ps5.begin(MAC_PS5_WHITE);
     Serial.println("PS5 Connected");
 }
 
