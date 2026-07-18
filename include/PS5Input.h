@@ -6,6 +6,10 @@
 
 class PS5Input{
 public:
+    PS5Input(const char* mac);
+
+    void begin();
+
     enum PS5Button {
         Cross, Circle, Triangle, Square,
         L1, R1, Up, Down, Left, Right
@@ -17,7 +21,6 @@ public:
         float valW = 0.000;
     };
 
-    void begin();
     void update();
     bool isPressed(PS5Button btn);
     bool wasPressed(PS5Button btn);
@@ -26,8 +29,9 @@ public:
     void printLog(HardwareSerial &serialPort);
 
 private:
+    const char* _mac;
     cmd_vel velocity;
-    
+
     uint16_t currentButtons = 0;
     uint16_t prevButtons = 0;
 

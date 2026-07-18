@@ -2,10 +2,13 @@
 #include "config_esp32.h"
 #include "esp_bt.h"
 
-void PS5Input::begin(){
-    ps5.begin(MAC_PS5_WHITE);
+PS5Input::PS5Input(const char* mac) : _mac(mac) {
+}
 
-    esp_bredr_tx_power_set(ESP_PWR_LVL_P9, ESP_PWR_LVL_P9); 
+void PS5Input::begin(){
+    ps5.begin(_mac);
+
+    esp_bredr_tx_power_set(ESP_PWR_LVL_P9, ESP_PWR_LVL_P9);
 
     esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_P9);
     esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_P9);
