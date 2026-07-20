@@ -32,6 +32,8 @@ int16_t lift_pwm = 0;
 int16_t arm_pwm = 0;
 int16_t box_pwm = 0;
 
+const int STICK_DEADZONE = 10;
+
 //----------------------------------------
 const float wheel_Walk_Normal = 1.500;
 const float wheel_Walk_Slow = 0.600;
@@ -136,8 +138,14 @@ void armControl(){
             box_speed = BOX_Slow;
         }
 
-        arm_pwm = map(ps5.LStickY(), -128, 127, -arm_speed, arm_speed);
-        box_pwm = map(ps5.RStickY(), -128, 127, -box_speed, box_speed);
+        int ly = ps5.LStickY();
+        int ry = ps5.RStickY();
+
+        if (abs(ly) < STICK_DEADZONE) ly = 0;
+        if (abs(ry) < STICK_DEADZONE) ry = 0;
+
+        arm_pwm = map(ly, -128, 127, -arm_speed, arm_speed);
+        box_pwm = map(ry, -128, 127, -box_speed, box_speed);
     } else {
         arm_pwm = 0;
         box_pwm = 0;
@@ -169,6 +177,9 @@ void loop() {
         sendWheelCommand(WheelSerial, velocity.valX, velocity.valY, velocity.valW);
 
         armControl();
+        sendArmCommand(ArmSerial, arm_pwm);
+        sendBoxCommand(ArmSerial, box_pwm);
+
         digitalControl();
     }
 }
