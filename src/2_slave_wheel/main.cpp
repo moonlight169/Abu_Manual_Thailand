@@ -6,10 +6,10 @@
 
 #include "config_wheels.h"
 
-Wheel wheelFL(MotorFL_A, MotorFL_B, EncFL_A, EncFL_B, PULSE_PER_REV);
-Wheel wheelFR(MotorFR_A, MotorFR_B, EncFR_A, EncFR_B, PULSE_PER_REV);
-Wheel wheelRL(MotorRL_A, MotorRL_B, EncRL_A, EncRL_B, PULSE_PER_REV);
-Wheel wheelRR(MotorRR_A, MotorRR_B, EncRR_A, EncRR_B, PULSE_PER_REV);
+Wheel wheelFL(MotorFL_A, MotorFL_B, EncFL_A, EncFL_B, PULSE_PER_REV, "FL");
+Wheel wheelFR(MotorFR_A, MotorFR_B, EncFR_A, EncFR_B, PULSE_PER_REV, "FR");
+Wheel wheelRL(MotorRL_A, MotorRL_B, EncRL_A, EncRL_B, PULSE_PER_REV, "RL");
+Wheel wheelRR(MotorRR_A, MotorRR_B, EncRR_A, EncRR_B, PULSE_PER_REV, "RR");
 
 WheelReceiver wheelReceiver;
 
@@ -28,9 +28,11 @@ int current_rpm1, current_rpm2, current_rpm3, current_rpm4;
 
 unsigned long prev_control_time = 0;
 unsigned long g_prev_command_time = 0;
+unsigned long prev_debug_time = 0;
 
 #define COMMAND_RATE 80          // Hz
 #define WHEEL_CMD_TIMEOUT_MS 300 // ms
+#define DEBUG_RATE 5             // Hz
 
 void isrFL_A() { wheelFL.handleA(); }
 void isrFL_B() { wheelFL.handleB(); }
@@ -98,14 +100,27 @@ void loop() {
         moveBase();
         prev_control_time = now;
     }
+
+    if ((now - prev_debug_time) >= (1000 / DEBUG_RATE)){
+        wheelFL.debugRPM();
+        wheelFR.debugRPM();
+        wheelRL.debugRPM();
+        wheelRR.debugRPM();
+
+        wheelFL.debugPWM();
+        wheelFR.debugPWM();
+        wheelRL.debugPWM();
+        wheelRR.debugPWM();
+        prev_debug_time = now;
+    }
 }
 
 void moveBase()
 {
     Kinematics::rpm req_rpm = kinematics.getRPM(g_req_linear_vel_x, g_req_linear_vel_y, g_req_angular_vel_z);
 
-    wheelFL.run(MotorFL_Pid.compute(req_rpm.motor1, current_rpm1));
-    wheelFR.run(MotorFR_Pid.compute(req_rpm.motor2, current_rpm2));
-    wheelRL.run(MotorRL_Pid.compute(req_rpm.motor3, current_rpm3));
-    wheelRR.run(MotorRR_Pid.compute(req_rpm.motor4, current_rpm4));
+    wheelFL.smoothRun(MotorFL_Pid.compute(req_rpm.motor1, current_rpm1));
+    wheelFR.smoothRun(MotorFR_Pid.compute(req_rpm.motor2, current_rpm2));
+    wheelRL.smoothRun(MotorRL_Pid.compute(req_rpm.motor3, current_rpm3));
+    wheelRR.smoothRun(MotorRR_Pid.compute(req_rpm.motor4, current_rpm4));
 }

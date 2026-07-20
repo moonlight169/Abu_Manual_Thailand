@@ -8,7 +8,7 @@
 
 class Wheel{
 public:
-    Wheel(int motorA, int motorB, int encA, int encB, float ppr);
+    Wheel(int motorA, int motorB, int encA, int encB, float ppr, const char* wheelName = "");
 
     void run(int speed);
     void smoothRun(int targetSpeed);
@@ -19,10 +19,13 @@ public:
     int getPWM();
     float getDistance(float ppm);
     long getCount();
+    void debugRPM();
+    void debugPWM();
 
 private:
     Motor _motor;
     Encoder _encoder;
+    const char* _wheelName;
 };
 
 #endif
