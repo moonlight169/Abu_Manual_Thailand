@@ -5,7 +5,8 @@ Relay::Relay(int pin) : _pin(pin), _state(false) {
 }
 
 void Relay::write(int status){
-    digitalWrite(_pin, status ? HIGH : LOW);
+    _state = status ? true : false;
+    digitalWrite(_pin, _state ? HIGH : LOW);
 }
 
 void Relay::toggle(){

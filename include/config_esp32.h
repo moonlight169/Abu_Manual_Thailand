@@ -2,7 +2,7 @@
 #define MAC_PS5_RED "0c:27:56:1a:0c:6e"
 #define COMMAND_RATE 50
 
-#define SCA 21
+#define SDA 21
 #define SCL 22
 
 #define WHEEL_UART_RX 16
