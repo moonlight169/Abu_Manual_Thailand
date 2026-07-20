@@ -47,6 +47,7 @@ void isrRR_A() { wheelRR.handleA(); }
 void isrRR_B() { wheelRR.handleB(); }
 
 void moveBase();
+void stopBase();
 
 void setup(){
     Serial.begin(115200);
@@ -89,7 +90,9 @@ void loop() {
         wheelReceiver.hasNewCommand = false;
     }
 
-    if (millis() - g_prev_command_time > WHEEL_CMD_TIMEOUT_MS){
+    bool commandTimedOut = (millis() - g_prev_command_time) > WHEEL_CMD_TIMEOUT_MS;
+
+    if (commandTimedOut){
         g_req_linear_vel_x = 0;
         g_req_linear_vel_y = 0;
         g_req_angular_vel_z = 0;
@@ -97,7 +100,11 @@ void loop() {
 
     unsigned long now = millis();
     if ((now - prev_control_time) >= (1000 / COMMAND_RATE)){
-        moveBase();
+        if (commandTimedOut){
+            stopBase();
+        } else {
+            moveBase();
+        }
         prev_control_time = now;
     }
 
@@ -123,4 +130,12 @@ void moveBase()
     wheelFR.smoothRun(MotorFR_Pid.compute(req_rpm.motor2, current_rpm2));
     wheelRL.smoothRun(MotorRL_Pid.compute(req_rpm.motor3, current_rpm3));
     wheelRR.smoothRun(MotorRR_Pid.compute(req_rpm.motor4, current_rpm4));
+}
+
+void stopBase()
+{
+    wheelFL.smoothRun(0);
+    wheelFR.smoothRun(0);
+    wheelRL.smoothRun(0);
+    wheelRR.smoothRun(0);
 }

@@ -34,13 +34,13 @@ void updateControl(){
         float y = 0.000;
         float w = 0.000;
 
-        if (ps5.Up())    x += 1.000;
-        if (ps5.Down())  x -= 1.000;
-        if (ps5.Right()) y += 1.000;
-        if (ps5.Left())  y -= 1.000;
+        if (ps5.Up()    || ps5.UpRight()   || ps5.UpLeft())    x += 1.500;
+        if (ps5.Down()  || ps5.DownRight() || ps5.DownLeft())  x -= 1.500;
+        if (ps5.Right() || ps5.UpRight()   || ps5.DownRight()) y -= 1.500;
+        if (ps5.Left()  || ps5.UpLeft()    || ps5.DownLeft())  y += 1.500;
 
-        if (ps5.R1()) w += 1.000;
-        if (ps5.L1()) w -= 1.000;
+        if (ps5.R1()) w -= 2.000;
+        if (ps5.L1()) w += 2.000;
 
         velocity.valX = x;
         velocity.valY = y;
