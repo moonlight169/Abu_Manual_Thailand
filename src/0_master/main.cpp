@@ -83,6 +83,12 @@ void digitalControl(){
 void setup(){
     Serial.begin(115200);
     joyInput.begin();
+    relay1.write(1);
+    relay2.write(1);
+    relay3.write(1);
+    relay4.write(1);
+    relay5.write(1);
+    relay6.write(1);
 
     WheelSerial.begin(WHEEL_UART_BAUD, SERIAL_8N1, WHEEL_UART_RX, WHEEL_UART_TX);
     ArmSerial.begin(ARM_UART_BAUD, SERIAL_8N1, ARM_UART_RX, ARM_UART_TX);
