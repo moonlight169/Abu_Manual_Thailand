@@ -62,6 +62,22 @@ void digitalControl(){
     } else {
         relay2.write(1);
     }
+
+    if (joyInput.wasPressed(PS5Input::Triangle)) {
+        relay3.toggle();
+    } 
+
+    if (joyInput.wasPressed(PS5Input::Circle)) {
+        relay4.toggle();
+    } 
+    
+    if (joyInput.wasPressed(PS5Input::Share)) {
+        relay5.toggle();
+    }
+
+    if (joyInput.wasPressed(PS5Input::Options)) {
+        relay6.toggle();
+    } 
 }
 
 void setup(){
