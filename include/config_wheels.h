@@ -1,8 +1,8 @@
 #define MotorFL_A PB0
 #define MotorFL_B PB1
 
-#define MotorFR_A PA6
-#define MotorFR_B PA7
+#define MotorFR_A PA7
+#define MotorFR_B PA6
 
 #define MotorRL_A PA2
 #define MotorRL_B PA3
@@ -20,7 +20,7 @@
 #define EncRL_B PB5
 
 #define EncRR_A PB7
-#define EncRR_B PB8
+#define EncRR_B PB6
 
 #define MAX_RPM 300
 #define PULSE_PER_REV 844.8
