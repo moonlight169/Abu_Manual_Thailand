@@ -121,10 +121,10 @@ void loop() {
         // wheelRL.debugPWM();
         // wheelRR.debugPWM();
 
-        wheelFL.debugCount();
-        wheelFR.debugCount();
-        wheelRL.debugCount();
-        wheelRR.debugCount();
+        // wheelFL.debugCount();
+        // wheelFR.debugCount();
+        // wheelRL.debugCount();
+        // wheelRR.debugCount();
         prev_debug_time = now;
     }
     // wheelFL.run(0);
@@ -137,16 +137,16 @@ void moveBase()
 {
     Kinematics::rpm req_rpm = kinematics.getRPM(g_req_linear_vel_x, g_req_linear_vel_y, g_req_angular_vel_z);
 
-    wheelFL.run(MotorFL_Pid.compute(req_rpm.motor1, current_rpm1));
-    wheelFR.run(MotorFR_Pid.compute(req_rpm.motor2, current_rpm2));
-    wheelRL.run(MotorRL_Pid.compute(req_rpm.motor3, current_rpm3));
-    wheelRR.run(MotorRR_Pid.compute(req_rpm.motor4, current_rpm4));
+    wheelFL.smoothRun(MotorFL_Pid.compute(req_rpm.motor1, current_rpm1));
+    wheelFR.smoothRun(MotorFR_Pid.compute(req_rpm.motor2, current_rpm2));
+    wheelRL.smoothRun(MotorRL_Pid.compute(req_rpm.motor3, current_rpm3));
+    wheelRR.smoothRun(MotorRR_Pid.compute(req_rpm.motor4, current_rpm4));
 }
 
 void stopBase()
 {
-    wheelFL.run(0);
-    wheelFR.run(0);
-    wheelRL.run(0);
-    wheelRR.run(0);
+    wheelFL.smoothRun(0);
+    wheelFR.smoothRun(0);
+    wheelRL.smoothRun(0);
+    wheelRR.smoothRun(0);
 }

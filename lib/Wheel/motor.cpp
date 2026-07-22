@@ -46,11 +46,11 @@ void Motor::run(){
 }
 
 void Motor::smoothRun(int targetSpeed){
-    // Simple acceleration ramp: move speed toward target by max step of 10 per call
+    // ไล่ _speed เข้าหา targetSpeed ทีละ SMOOTH_STEP ต่อครั้งที่เรียก (ไม่ใช่กระโดดตรงเป็น targetSpeed ทันที)
     if (targetSpeed > this->_speed){
-        this->_speed = min(this->_speed, targetSpeed);
+        this->_speed = min(this->_speed + SMOOTH_STEP, targetSpeed);
     } else if (targetSpeed < this->_speed){
-        this->_speed = max(this->_speed, targetSpeed);
+        this->_speed = max(this->_speed - SMOOTH_STEP, targetSpeed);
     }
     this->run();
 }
@@ -58,9 +58,9 @@ void Motor::smoothRun(int targetSpeed){
 void Motor::update(){
     // Gradually move current speed toward target speed
     if (this->_targetSpeed > this->_speed){
-        this->_speed = min(this->_speed, this->_targetSpeed);
+        this->_speed = min(this->_speed + SMOOTH_STEP, this->_targetSpeed);
     } else if (this->_targetSpeed < this->_speed){
-        this->_speed = max(this->_speed, this->_targetSpeed);
+        this->_speed = max(this->_speed - SMOOTH_STEP, this->_targetSpeed);
     }
     this->run();
 }

@@ -15,6 +15,10 @@ public:
     ~Motor();
 
 private:
+    // ระยะ PWM ที่ยอมให้ _speed ขยับเข้าใกล้ target ต่อการเรียก smoothRun()/update() หนึ่งครั้ง
+    // (เรียกที่ COMMAND_RATE 100Hz ใน 2_slave_wheel -> 20 ต่อ 10ms คือไล่ครบ 255 ใน ~130ms)
+    static const int SMOOTH_STEP = 20;
+
     int _pinA;
     int _pinB;
     int _speed = 0;
