@@ -32,6 +32,8 @@ int16_t lift_pwm = 0;
 int16_t arm_pwm = 0;
 int16_t box_pwm = 0;
 
+bool g_liftMode = false;
+
 const int STICK_DEADZONE = 10;
 
 //----------------------------------------
@@ -123,19 +125,28 @@ void digitalControl(){
     if (joyInput.wasPressed(PS5Input::Options)) {
         relay6.toggle();
     }
+
+    if (joyInput.isPressed(PS5Input::Touchpad)) {
+        g_liftMode = true;
+    } else {
+        g_liftMode = false;
+    }
 }
 
 void armControl(){
     if (ps5.isConnected()){
         int arm_speed = ARM_Normal;
         int box_speed = BOX_Normal;
+        int lift_speed = LIFT_Normal;
 
         if (ps5.L2()) {
             arm_speed = ARM_SuperSlow;
             box_speed = BOX_SuperSlow;
+            lift_speed = LIFT_SuperSlow;
         } else if (ps5.R2()) {
             arm_speed = ARM_Slow;
             box_speed = BOX_Slow;
+            lift_speed = LIFT_Slow;
         }
 
         int ly = ps5.LStickY();
@@ -144,11 +155,19 @@ void armControl(){
         if (abs(ly) < STICK_DEADZONE) ly = 0;
         if (abs(ry) < STICK_DEADZONE) ry = 0;
 
-        arm_pwm = map(ly, -128, 127, -arm_speed, arm_speed);
-        box_pwm = map(ry, -128, 127, -box_speed, box_speed);
+        if (g_liftMode) {
+            lift_pwm = map(ly, -128, 127, -lift_speed, lift_speed);
+            arm_pwm = 0;
+            box_pwm = 0;
+        } else {
+            arm_pwm = map(ly, -128, 127, -arm_speed, arm_speed);
+            box_pwm = map(ry, -128, 127, -box_speed, box_speed);
+            lift_pwm = 0;
+        }
     } else {
         arm_pwm = 0;
         box_pwm = 0;
+        lift_pwm = 0;
     }
 }
 
@@ -179,6 +198,7 @@ void loop() {
         armControl();
         sendArmCommand(ArmSerial, arm_pwm);
         sendBoxCommand(ArmSerial, box_pwm);
+        sendLiftCommand(ArmSerial, lift_pwm);
 
         digitalControl();
     }

@@ -10,6 +10,7 @@
 
 #define CMD_ARM 0x01
 #define CMD_BOX 0x02
+#define CMD_LIFT 0x03
 
 struct WheelCommand{
     float vx;
@@ -62,10 +63,13 @@ struct MotorReceiver{
     uint8_t expectedLen = 0;
     MotorCommand lastArmCommand;
     MotorCommand lastBoxCommand;
+    MotorCommand lastLiftCommand;
     bool hasNewArmCommand = false;
     bool hasNewBoxCommand = false;
+    bool hasNewLiftCommand = false;
     unsigned long lastArmReceivedTime = 0;
     unsigned long lastBoxReceivedTime = 0;
+    unsigned long lastLiftReceivedTime = 0;
 };
 
 uint8_t calculateChecksum(const uint8_t* data, uint8_t len);
@@ -75,5 +79,6 @@ void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega);
 void motorReceiverFeed(MotorReceiver &receiver, uint8_t incomingByte);
 void sendArmCommand(HardwareSerial &port, int16_t arm_pwm);
 void sendBoxCommand(HardwareSerial &port, int16_t box_pwm);
+void sendLiftCommand(HardwareSerial &port, int16_t lift_pwm);
 
 #endif

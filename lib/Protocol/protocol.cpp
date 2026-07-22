@@ -76,7 +76,7 @@ void motorReceiverFeed(MotorReceiver &receiver, uint8_t incomingByte){
 
         case READ_CMD_ID:
             receiver.cmdId = incomingByte;
-            if (receiver.cmdId == CMD_ARM || receiver.cmdId == CMD_BOX){
+            if (receiver.cmdId == CMD_ARM || receiver.cmdId == CMD_BOX || receiver.cmdId == CMD_LIFT){
                 receiver.state = READ_LEN;
             } else {
                 receiver.state = WAIT_START;
@@ -112,6 +112,10 @@ void motorReceiverFeed(MotorReceiver &receiver, uint8_t incomingByte){
                     memcpy(&receiver.lastBoxCommand, receiver.buffer, sizeof(MotorCommand));
                     receiver.hasNewBoxCommand = true;
                     receiver.lastBoxReceivedTime = millis();
+                } else if (receiver.cmdId == CMD_LIFT){
+                    memcpy(&receiver.lastLiftCommand, receiver.buffer, sizeof(MotorCommand));
+                    receiver.hasNewLiftCommand = true;
+                    receiver.lastLiftReceivedTime = millis();
                 }
             }
             receiver.state = WAIT_START;
@@ -142,4 +146,8 @@ void sendArmCommand(HardwareSerial &port, int16_t arm_pwm){
 
 void sendBoxCommand(HardwareSerial &port, int16_t box_pwm){
     sendMotorCommand(port, CMD_BOX, box_pwm);
+}
+
+void sendLiftCommand(HardwareSerial &port, int16_t lift_pwm){
+    sendMotorCommand(port, CMD_LIFT, lift_pwm);
 }
