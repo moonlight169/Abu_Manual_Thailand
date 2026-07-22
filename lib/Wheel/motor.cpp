@@ -6,7 +6,7 @@ Motor::Motor(int pinA, int pinB){
     this->_pinB = pinB;
 
     analogWriteResolution(8);
-    analogWriteFrequency(5000);
+    analogWriteFrequency(2000);
     
     pinMode(pinA, OUTPUT);
     pinMode(pinB, OUTPUT);
@@ -20,7 +20,7 @@ Motor::~Motor(){
 }
 
 void Motor::setspeed(int speed){
-    this->_speed = constrain(speed, -255, 255);
+    this->_speed = constrain(speed, -254, 255);
 }
 
 int Motor::getSpeed(){
@@ -48,9 +48,9 @@ void Motor::run(){
 void Motor::smoothRun(int targetSpeed){
     // Simple acceleration ramp: move speed toward target by max step of 10 per call
     if (targetSpeed > this->_speed){
-        this->_speed = min(this->_speed + 10, targetSpeed);
+        this->_speed = min(this->_speed, targetSpeed);
     } else if (targetSpeed < this->_speed){
-        this->_speed = max(this->_speed - 10, targetSpeed);
+        this->_speed = max(this->_speed, targetSpeed);
     }
     this->run();
 }
@@ -58,9 +58,9 @@ void Motor::smoothRun(int targetSpeed){
 void Motor::update(){
     // Gradually move current speed toward target speed
     if (this->_targetSpeed > this->_speed){
-        this->_speed = min(this->_speed + 10, this->_targetSpeed);
+        this->_speed = min(this->_speed, this->_targetSpeed);
     } else if (this->_targetSpeed < this->_speed){
-        this->_speed = max(this->_speed - 10, this->_targetSpeed);
+        this->_speed = max(this->_speed, this->_targetSpeed);
     }
     this->run();
 }

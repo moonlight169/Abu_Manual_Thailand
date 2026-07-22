@@ -13,16 +13,28 @@
 #define EncFL_A PB12
 #define EncFL_B PB13
 
-#define EncFR_A PB15
-#define EncFR_B PB14
+#define EncFR_A PB5
+#define EncFR_B PB4
 
-#define EncRL_A PB4
-#define EncRL_B PB5
+#define EncRL_A PB14
+#define EncRL_B PB15
 
 #define EncRR_A PB7
 #define EncRR_B PB6
 
-#define MAX_RPM 300
+// #define EncFL_A PB12
+// #define EncFL_B PB13
+
+// #define EncFR_A PB15
+// #define EncFR_B PB14
+
+// #define EncRL_A PB4
+// #define EncRL_B PB5
+
+// #define EncRR_A PB7
+// #define EncRR_B PB6
+
+#define MAX_RPM 400
 #define PULSE_PER_REV 844.8
 
 #define LR_WHEELS_DISTANCE 0.420
@@ -36,17 +48,17 @@
 #define stepDelay 10
 
 #define FL_K_P 1.0
-#define FL_K_I 0.05
-#define FL_K_D 0.005
+#define FL_K_I 0.00
+#define FL_K_D 0.05
 
 #define FR_K_P 1.0
-#define FR_K_I 0.05
-#define FR_K_D 0.005
+#define FR_K_I 0.00
+#define FR_K_D 0.05
 
 #define RL_K_P 1.0
-#define RL_K_I 0.05
-#define RL_K_D 0.005
+#define RL_K_I 0.00
+#define RL_K_D 0.05
 
 #define RR_K_P 1.0
-#define RR_K_I 0.05
-#define RR_K_D 0.005
+#define RR_K_I 0.00
+#define RR_K_D 0.05

@@ -21,6 +21,7 @@ public:
     long getCount();
     void debugRPM();
     void debugPWM();
+    void debugCount();
 
 private:
     Motor _motor;

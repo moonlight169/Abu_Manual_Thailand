@@ -51,3 +51,9 @@ void Wheel::debugPWM(){
     Serial.print(" PWM: ");
     Serial.println(this->getPWM());
 }
+
+void Wheel::debugCount(){
+    Serial.print(this->_wheelName);
+    Serial.print(" Count: ");
+    Serial.println(this->getCount());
+}
