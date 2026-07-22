@@ -56,15 +56,15 @@ bool g_liftMode = false;
 const int STICK_DEADZONE = 10;
 
 //----------------------------------------
-const float wheel_Walk_Normal = 3.500;
+const float wheel_Walk_Normal = 4.000;
 const float wheel_Walk_Slow = 1.500;
 const float wheel_Walk_SuperSlow = 0.800;
 
-const float wheel_Slide_Normal = 3.500;
+const float wheel_Slide_Normal = 4.000;
 const float wheel_Slide_Slow = 1.500;
 const float wheel_Slide_SuperSlow = 0.300;
 
-const float wheel_Turn_Normal = 3.000;
+const float wheel_Turn_Normal = 8.000;
 const float wheel_Turn_Slow = 2.000;
 const float wheel_Turn_SuperSlow = 0.800;
 

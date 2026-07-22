@@ -34,8 +34,8 @@
 // #define EncRR_A PB7
 // #define EncRR_B PB6
 
-#define MAX_RPM 400
-#define PULSE_PER_REV 844.8
+#define MAX_RPM 600
+#define PULSE_PER_REV 432
 
 #define LR_WHEELS_DISTANCE 0.420
 #define FR_WHEELS_DISTANCE 0.430
