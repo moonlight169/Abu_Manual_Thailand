@@ -7,22 +7,59 @@
 
 #include "config_esp32.h"
 
-Adafruit_BNO08x bno08x(BNO08X_RESET);
-sh2_SensorValue_t sensorValue;
+Adafruit_BNO08x _bno08x(BNO08X_RESET);
+sh2_SensorValue_t _sensorValue;
+static bool _imuReady = false;
 
-float g_imuYawDeg = 0.000;
+// interval หน่วยไมโครวินาที: 2500us = 400Hz
+static const uint32_t IMU_REPORT_INTERVAL_US = 2500;
+
+static float _imuYaw = 0;
+static float _imuRoll = 0;
+static float _imuPitch = 0;
+
 float g_targetYawDeg = 0.000;
-
-float quaternionToYawDeg(float real, float i, float j, float k) {
-    float siny_cosp = 2.000 * (real * k + i * j);
-    float cosy_cosp = 1.000 - 2.000 * (j * j + k * k);
-    return atan2(siny_cosp, cosy_cosp) * RAD_TO_DEG;
-}
 
 float wrapAngle180(float angleDeg) {
     while (angleDeg > 180.000)  angleDeg -= 360.000;
     while (angleDeg < -180.000) angleDeg += 360.000;
     return angleDeg;
+}
+
+static void quaternionToEuler(float qr, float qi, float qj, float qk,
+                              float &yaw, float &pitch, float &roll){
+    float sqr = qr * qr;
+    float sqi = qi * qi;
+    float sqj = qj * qj;
+    float sqk = qk * qk;
+
+    yaw = atan2f(2.0f * (qi * qj + qk * qr), (sqi - sqj - sqk + sqr));
+    pitch = asinf(-2.0f * (qi * qk - qj * qr) / (sqi + sqj + sqk + sqr));
+    roll = atan2f(2.0f * (qj * qk + qi * qr), (-sqi - sqj + sqk + sqr));
+
+    // แปลงเป็นองศา
+    yaw   *= RAD_TO_DEG;
+    pitch *= RAD_TO_DEG;
+    roll  *= RAD_TO_DEG;
+
+    // Normalize yaw ให้อยู่ในช่วง -180 ถึง 180 องศา (จุดตัดอยู่ด้านหลังหุ่นยนต์ ไม่ใช่ด้านหน้า)
+    yaw = wrapAngle180(yaw);
+}
+
+static void updateImu(){
+    if (!_imuReady) return;
+    if (_bno08x.wasReset()) {
+        _bno08x.enableReport(SH2_GYRO_INTEGRATED_RV, IMU_REPORT_INTERVAL_US);
+    }
+    if (_bno08x.getSensorEvent(&_sensorValue)) {
+        if (_sensorValue.sensorId == SH2_GYRO_INTEGRATED_RV) {
+            float qw = _sensorValue.un.gyroIntegratedRV.real;
+            float qx = _sensorValue.un.gyroIntegratedRV.i;
+            float qy = _sensorValue.un.gyroIntegratedRV.j;
+            float qz = _sensorValue.un.gyroIntegratedRV.k;
+            quaternionToEuler(qw, qx, qy, qz, _imuYaw, _imuRoll, _imuPitch);
+        }
+    }
 }
 
 PS5Input joyInput(MAC_PS5_WHITE);
@@ -56,19 +93,19 @@ bool g_liftMode = false;
 const int STICK_DEADZONE = 10;
 
 //----------------------------------------
-const float wheel_Walk_Normal = 4.000;
-const float wheel_Walk_Slow = 1.500;
+const float wheel_Walk_Normal = 1.800;
+const float wheel_Walk_Slow = 1.000;
 const float wheel_Walk_SuperSlow = 0.800;
 
-const float wheel_Slide_Normal = 4.000;
-const float wheel_Slide_Slow = 1.500;
-const float wheel_Slide_SuperSlow = 0.300;
+const float wheel_Slide_Normal = 1.800;
+const float wheel_Slide_Slow = 1.000;
+const float wheel_Slide_SuperSlow = 0.800;
 
-const float wheel_Turn_Normal = 8.000;
+const float wheel_Turn_Normal = 4.000;
 const float wheel_Turn_Slow = 2.000;
 const float wheel_Turn_SuperSlow = 0.800;
 
-const float YAW_LOCK_KP = 1.1;
+const float YAW_LOCK_KP = 6.0;
 
 Relay relay1(Relay1);
 Relay relay2(Relay2);
@@ -115,13 +152,17 @@ void updateControl(){
         bool manualTurn = (w != 0.000);
 
         if (manualTurn) {
-            g_targetYawDeg = g_imuYawDeg;
+            g_targetYawDeg = _imuYaw;
         } else if (x != 0.000 || y != 0.000) {
-            float yawError = wrapAngle180(g_targetYawDeg - g_imuYawDeg);
-            w = yawError * YAW_LOCK_KP;
+            float yawErrorDeg = wrapAngle180(g_targetYawDeg - _imuYaw);
+            // omega ที่ส่งให้ wheel slave เป็นหน่วย rad/s (ตาม Kinematics::calculateRPM)
+            // ต้องแปลง yawError จากองศาเป็นเรเดียนก่อนคูณ Kp มิฉะนั้น error องศาเดียว
+            // จะกลายเป็นคำสั่ง omega ที่ใหญ่เกินจริง ทำให้ turn_speed ตัดอิ่มตัวแทบทุกครั้ง (bang-bang)
+            float yawErrorRad = yawErrorDeg * DEG_TO_RAD;
+            w = yawErrorRad * YAW_LOCK_KP;
             w = constrain(w, -turn_speed, turn_speed);
         } else {
-            g_targetYawDeg = g_imuYawDeg;
+            g_targetYawDeg = _imuYaw;
         }
 
         velocity.valX = x;
@@ -209,6 +250,8 @@ void armControl(){
 void setup(){
     Serial.begin(115200);
     joyInput.begin();
+
+    Wire.begin(SDA, SCL, 100000);
     relay1.write(1);
     relay2.write(1);
     relay3.write(1);
@@ -219,35 +262,30 @@ void setup(){
     WheelSerial.begin(WHEEL_UART_BAUD, SERIAL_8N1, WHEEL_UART_RX, WHEEL_UART_TX);
     ArmSerial.begin(ARM_UART_BAUD, SERIAL_8N1, ARM_UART_RX, ARM_UART_TX);
 
-    if (!bno08x.begin_I2C()) {
-        Serial.println("BNO08x not found, check wiring/I2C address");
+    if (!_bno08x.begin_I2C()) {
+        Serial.println(F(">> BNO085 not found"));
+        _imuReady = false;
     } else {
-        bno08x.enableReport(SH2_ROTATION_VECTOR);
+        Serial.println(F(">> BNO085 Found!"));
+        // ใช้ Gyro Integrated RV interval 2500us = 400Hz (เร็วกว่า rotation vector เดิม, เหมาะกับ master loop 80Hz)
+        if (!_bno08x.enableReport(SH2_GYRO_INTEGRATED_RV, IMU_REPORT_INTERVAL_US)) {
+            Serial.println(F(">> Could not enable gyro integrated RV"));
+        } else {
+            Serial.println(F(">> Gyro Integrated RV enabled at 400Hz"));
+        }
+        _imuReady = true;
     }
 }
 
 void loop() {
-    if (bno08x.wasReset()) {
-        bno08x.enableReport(SH2_ROTATION_VECTOR);
-    }
-
-    if (bno08x.getSensorEvent(&sensorValue)) {
-        if (sensorValue.sensorId == SH2_ROTATION_VECTOR) {
-            g_imuYawDeg = quaternionToYawDeg(
-                sensorValue.un.rotationVector.real,
-                sensorValue.un.rotationVector.i,
-                sensorValue.un.rotationVector.j,
-                sensorValue.un.rotationVector.k
-            );
-        }
-    }
+    updateImu();
 
     unsigned long now = millis();
 
     if ((now - prev_imu_print_time) >= (1000 / IMU_PRINT_RATE)) {
         prev_imu_print_time = now;
         Serial.print("Yaw: ");
-        Serial.println(g_imuYawDeg);
+        Serial.println(_imuYaw);
     }
 
     if ((now - prev_wheel_send_time) >= (1000 / COMMAND_RATE)) {
