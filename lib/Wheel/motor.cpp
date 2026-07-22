@@ -6,7 +6,7 @@ Motor::Motor(int pinA, int pinB){
     this->_pinB = pinB;
 
     analogWriteResolution(8);
-    analogWriteFrequency(2000);
+    analogWriteFrequency(12000);
     
     pinMode(pinA, OUTPUT);
     pinMode(pinB, OUTPUT);
@@ -20,7 +20,7 @@ Motor::~Motor(){
 }
 
 void Motor::setspeed(int speed){
-    this->_speed = constrain(speed, -254, 255);
+    this->_speed = constrain(speed, -255, 255);
 }
 
 int Motor::getSpeed(){

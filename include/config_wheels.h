@@ -34,15 +34,15 @@
 // #define EncRR_A PB7
 // #define EncRR_B PB6
 
-#define MAX_RPM 600
-#define PULSE_PER_REV 432
+#define MAX_RPM 3300
+#define PULSE_PER_REV 844.4
 
 #define LR_WHEELS_DISTANCE 0.420
 #define FR_WHEELS_DISTANCE 0.430
-#define WHEEL_RADIUS 0.153
+#define WHEEL_RADIUS 0.0765
 
-// PWM range for 8-bit resolution (0-255)
-#define PWM_MIN -254
+// PWM range for 10-bit resolution (0-255)
+#define PWM_MIN -255
 #define PWM_MAX 255
 
 #define stepDelay 10

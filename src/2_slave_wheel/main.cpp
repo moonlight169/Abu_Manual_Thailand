@@ -30,7 +30,7 @@ unsigned long prev_control_time = 0;
 unsigned long g_prev_command_time = 0;
 unsigned long prev_debug_time = 0;
 
-#define COMMAND_RATE 80          // Hz
+#define COMMAND_RATE 100          // Hz
 #define WHEEL_CMD_TIMEOUT_MS 300 // ms
 #define DEBUG_RATE 5             // Hz
 
