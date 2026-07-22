@@ -5,6 +5,8 @@
 #define SDA 21
 #define SCL 22
 
+#define BNO08X_RESET -1
+
 #define WHEEL_UART_RX 16
 #define WHEEL_UART_TX 17
 #define WHEEL_UART_BAUD 115200

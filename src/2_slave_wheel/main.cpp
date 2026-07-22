@@ -110,23 +110,23 @@ void loop() {
         prev_control_time = now;
     }
 
-    // if ((now - prev_debug_time) >= (1000 / DEBUG_RATE)){
-    //     // wheelFL.debugRPM();
-    //     // wheelFR.debugRPM();
-    //     // wheelRL.debugRPM();
-    //     // wheelRR.debugRPM();
+    if ((now - prev_debug_time) >= (1000 / DEBUG_RATE)){
+        // wheelFL.debugRPM();
+        // wheelFR.debugRPM();
+        // wheelRL.debugRPM();
+        // wheelRR.debugRPM();
 
-    //     // wheelFL.debugPWM();
-    //     // wheelFR.debugPWM();
-    //     // wheelRL.debugPWM();
-    //     // wheelRR.debugPWM();
+        // wheelFL.debugPWM();
+        // wheelFR.debugPWM();
+        // wheelRL.debugPWM();
+        // wheelRR.debugPWM();
 
-    //     wheelFL.debugCount();
-    //     wheelFR.debugCount();
-    //     wheelRL.debugCount();
-    //     wheelRR.debugCount();
-    //     prev_debug_time = now;
-    // }
+        wheelFL.debugCount();
+        wheelFR.debugCount();
+        wheelRL.debugCount();
+        wheelRR.debugCount();
+        prev_debug_time = now;
+    }
     // wheelFL.run(0);
     // wheelFR.run(250);
     // wheelRL.run(0);

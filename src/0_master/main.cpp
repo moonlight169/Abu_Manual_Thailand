@@ -3,8 +3,27 @@
 #include <protocol.h>
 #include <relay.h>
 #include <PS5Input.h>
+#include <Adafruit_BNO08x.h>
 
 #include "config_esp32.h"
+
+Adafruit_BNO08x bno08x(BNO08X_RESET);
+sh2_SensorValue_t sensorValue;
+
+float g_imuYawDeg = 0.000;
+float g_targetYawDeg = 0.000;
+
+float quaternionToYawDeg(float real, float i, float j, float k) {
+    float siny_cosp = 2.000 * (real * k + i * j);
+    float cosy_cosp = 1.000 - 2.000 * (j * j + k * k);
+    return atan2(siny_cosp, cosy_cosp) * RAD_TO_DEG;
+}
+
+float wrapAngle180(float angleDeg) {
+    while (angleDeg > 180.000)  angleDeg -= 360.000;
+    while (angleDeg < -180.000) angleDeg += 360.000;
+    return angleDeg;
+}
 
 PS5Input joyInput(MAC_PS5_WHITE);
 
@@ -37,17 +56,19 @@ bool g_liftMode = false;
 const int STICK_DEADZONE = 10;
 
 //----------------------------------------
-const float wheel_Walk_Normal = 1.500;
-const float wheel_Walk_Slow = 0.600;
-const float wheel_Walk_SuperSlow = 0.300;
+const float wheel_Walk_Normal = 3.500;
+const float wheel_Walk_Slow = 1.500;
+const float wheel_Walk_SuperSlow = 0.800;
 
-const float wheel_Slide_Normal = 1.500;
-const float wheel_Slide_Slow = 0.600;
+const float wheel_Slide_Normal = 3.500;
+const float wheel_Slide_Slow = 1.500;
 const float wheel_Slide_SuperSlow = 0.300;
 
-const float wheel_Turn_Normal = 2.000;
-const float wheel_Turn_Slow = 1.000;
-const float wheel_Turn_SuperSlow = 0.500;
+const float wheel_Turn_Normal = 3.000;
+const float wheel_Turn_Slow = 2.000;
+const float wheel_Turn_SuperSlow = 0.800;
+
+const float YAW_LOCK_KP = 1.1;
 
 Relay relay1(Relay1);
 Relay relay2(Relay2);
@@ -60,6 +81,8 @@ HardwareSerial WheelSerial(1);
 HardwareSerial ArmSerial(2);
 
 unsigned long prev_wheel_send_time = 0;
+unsigned long prev_imu_print_time = 0;
+const unsigned long IMU_PRINT_RATE = 10;
 
 void updateControl(){
     if (ps5.isConnected()){
@@ -88,6 +111,18 @@ void updateControl(){
 
         if (ps5.R1()) w -= turn_speed;
         if (ps5.L1()) w += turn_speed;
+
+        bool manualTurn = (w != 0.000);
+
+        if (manualTurn) {
+            g_targetYawDeg = g_imuYawDeg;
+        } else if (x != 0.000 || y != 0.000) {
+            float yawError = wrapAngle180(g_targetYawDeg - g_imuYawDeg);
+            w = yawError * YAW_LOCK_KP;
+            w = constrain(w, -turn_speed, turn_speed);
+        } else {
+            g_targetYawDeg = g_imuYawDeg;
+        }
 
         velocity.valX = x;
         velocity.valY = y;
@@ -183,10 +218,38 @@ void setup(){
 
     WheelSerial.begin(WHEEL_UART_BAUD, SERIAL_8N1, WHEEL_UART_RX, WHEEL_UART_TX);
     ArmSerial.begin(ARM_UART_BAUD, SERIAL_8N1, ARM_UART_RX, ARM_UART_TX);
+
+    if (!bno08x.begin_I2C()) {
+        Serial.println("BNO08x not found, check wiring/I2C address");
+    } else {
+        bno08x.enableReport(SH2_ROTATION_VECTOR);
+    }
 }
 
 void loop() {
+    if (bno08x.wasReset()) {
+        bno08x.enableReport(SH2_ROTATION_VECTOR);
+    }
+
+    if (bno08x.getSensorEvent(&sensorValue)) {
+        if (sensorValue.sensorId == SH2_ROTATION_VECTOR) {
+            g_imuYawDeg = quaternionToYawDeg(
+                sensorValue.un.rotationVector.real,
+                sensorValue.un.rotationVector.i,
+                sensorValue.un.rotationVector.j,
+                sensorValue.un.rotationVector.k
+            );
+        }
+    }
+
     unsigned long now = millis();
+
+    if ((now - prev_imu_print_time) >= (1000 / IMU_PRINT_RATE)) {
+        prev_imu_print_time = now;
+        Serial.print("Yaw: ");
+        Serial.println(g_imuYawDeg);
+    }
+
     if ((now - prev_wheel_send_time) >= (1000 / COMMAND_RATE)) {
         prev_wheel_send_time = now;
 
