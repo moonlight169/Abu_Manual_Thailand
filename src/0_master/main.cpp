@@ -94,12 +94,12 @@ const int STICK_DEADZONE = 10;
 
 //----------------------------------------
 const float wheel_Walk_Normal = 1.800;
-const float wheel_Walk_Slow = 1.000;
-const float wheel_Walk_SuperSlow = 0.800;
+const float wheel_Walk_Slow = 0.700;
+const float wheel_Walk_SuperSlow = 0.300;
 
 const float wheel_Slide_Normal = 1.800;
-const float wheel_Slide_Slow = 1.000;
-const float wheel_Slide_SuperSlow = 0.800;
+const float wheel_Slide_Slow = 0.700;
+const float wheel_Slide_SuperSlow = 0.300;
 
 const float wheel_Turn_Normal = 4.000;
 const float wheel_Turn_Slow = 2.000;
@@ -181,9 +181,7 @@ void digitalControl(){
     } 
     
     if (joyInput.isPressed(PS5Input::Square)) {
-        relay2.write(0);
-    } else {
-        relay2.write(1);
+        relay2.toggle();
     }
 
     if (joyInput.wasPressed(PS5Input::Triangle)) {
