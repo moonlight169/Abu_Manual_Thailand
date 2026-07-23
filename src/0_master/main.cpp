@@ -177,15 +177,15 @@ void updateControl(){
 
 void digitalControl(){
     if (joyInput.wasPressed(PS5Input::Cross)) {
-        relay1.toggle();
+        relay3.toggle();
     } 
     
-    if (joyInput.isPressed(PS5Input::Square)) {
+    if (joyInput.wasPressed(PS5Input::Square)) {
         relay2.toggle();
     }
 
     if (joyInput.wasPressed(PS5Input::Triangle)) {
-        relay3.toggle();
+        relay5.toggle();
     } 
 
     if (joyInput.wasPressed(PS5Input::Circle)) {
@@ -193,7 +193,7 @@ void digitalControl(){
     } 
     
     if (joyInput.wasPressed(PS5Input::Share)) {
-        relay5.toggle();
+        relay1.toggle();
     }
 
     if (joyInput.wasPressed(PS5Input::Options)) {
@@ -230,12 +230,12 @@ void armControl(){
         if (abs(ry) < STICK_DEADZONE) ry = 0;
 
         if (g_liftMode) {
-            lift_pwm = map(ly, -128, 127, -lift_speed, lift_speed);
+            lift_pwm = map(ry, -128, 127, -lift_speed, lift_speed);
             arm_pwm = 0;
             box_pwm = 0;
         } else {
-            arm_pwm = map(ly, -128, 127, -arm_speed, arm_speed);
-            box_pwm = map(ry, -128, 127, -box_speed, box_speed);
+            arm_pwm = map(ry, -128, 127, arm_speed, -arm_speed);
+            box_pwm = map(ly, -128, 127, -box_speed, box_speed);
             lift_pwm = 0;
         }
     } else {

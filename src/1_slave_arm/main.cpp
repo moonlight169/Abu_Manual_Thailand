@@ -69,22 +69,22 @@ void loop(){
         int16_t safeBoxPwm = boxTimedOut ? 0 : g_box_pwm;
         int16_t safeLiftPwm = liftTimedOut ? 0 : g_lift_pwm;
 
-        // if (digitalRead(LimitSW_Arm_Front) == LOW && safeArmPwm > 0) {
-        //     safeArmPwm = 0;
-        // }
-        // if (digitalRead(LimitSW_Box_Front) == LOW && safeBoxPwm > 0) {
-        //     safeBoxPwm = 0;
-        // }
+        if (digitalRead(LimitSW_Arm_Front) == LOW && safeArmPwm > 0) {
+            safeArmPwm = 0;
+        }
+        if (digitalRead(LimitSW_Box_Front) == LOW && safeBoxPwm > 0) {
+            safeBoxPwm = 0;
+        }
         // if (digitalRead(LimitSW_Lift_Up) == LOW && safeLiftPwm > 0) {
         //     safeLiftPwm = 0;
         // }
 
-        // if (digitalRead(LimitSW_Arm_Back) == LOW && safeArmPwm < 0) {
-        //     safeArmPwm = 0;
-        // }
-        // if (digitalRead(LimitSW_Box_Back) == LOW && safeBoxPwm < 0) {
-        //     safeBoxPwm = 0;
-        // }
+        if (digitalRead(LimitSW_Arm_Back) == LOW && safeArmPwm < 0) {
+            safeArmPwm = 0;
+        }
+        if (digitalRead(LimitSW_Box_Back) == LOW && safeBoxPwm < 0) {
+            safeBoxPwm = 0;
+        }
         // if (digitalRead(LimitSW_Lift_Down) == LOW && safeLiftPwm < 0) {
         //     safeLiftPwm = 0;
         // }

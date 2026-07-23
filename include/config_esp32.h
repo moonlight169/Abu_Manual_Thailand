@@ -15,9 +15,9 @@
 #define ARM_UART_TX 18
 #define ARM_UART_BAUD 115200
 
-#define Relay1 32
-#define Relay2 33
-#define Relay3 25
+#define Relay1 13
+#define Relay2 32
+#define Relay3 33
 #define Relay4 26
 #define Relay5 27
 #define Relay6 14
