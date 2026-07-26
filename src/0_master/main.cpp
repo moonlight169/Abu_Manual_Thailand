@@ -11,14 +11,16 @@ Adafruit_BNO08x _bno08x(BNO08X_RESET);
 sh2_SensorValue_t _sensorValue;
 static bool _imuReady = false;
 
-// interval หน่วยไมโครวินาที: 2500us = 400Hz
 static const uint32_t IMU_REPORT_INTERVAL_US = 2500;
 
 static float _imuYaw = 0;
 static float _imuRoll = 0;
 static float _imuPitch = 0;
+static float _imuYawRateRadPerSec = 0;
 
 float g_targetYawDeg = 0.000;
+
+static bool _yawLockNeedsResync = true;
 
 float wrapAngle180(float angleDeg) {
     while (angleDeg > 180.000)  angleDeg -= 360.000;
@@ -42,7 +44,6 @@ static void quaternionToEuler(float qr, float qi, float qj, float qk,
     pitch *= RAD_TO_DEG;
     roll  *= RAD_TO_DEG;
 
-    // Normalize yaw ให้อยู่ในช่วง -180 ถึง 180 องศา (จุดตัดอยู่ด้านหลังหุ่นยนต์ ไม่ใช่ด้านหน้า)
     yaw = wrapAngle180(yaw);
 }
 
@@ -50,6 +51,7 @@ static void updateImu(){
     if (!_imuReady) return;
     if (_bno08x.wasReset()) {
         _bno08x.enableReport(SH2_GYRO_INTEGRATED_RV, IMU_REPORT_INTERVAL_US);
+        _yawLockNeedsResync = true;
     }
     if (_bno08x.getSensorEvent(&_sensorValue)) {
         if (_sensorValue.sensorId == SH2_GYRO_INTEGRATED_RV) {
@@ -58,6 +60,13 @@ static void updateImu(){
             float qy = _sensorValue.un.gyroIntegratedRV.j;
             float qz = _sensorValue.un.gyroIntegratedRV.k;
             quaternionToEuler(qw, qx, qy, qz, _imuYaw, _imuRoll, _imuPitch);
+
+            _imuYawRateRadPerSec = _sensorValue.un.gyroIntegratedRV.angVelZ;
+
+            if (_yawLockNeedsResync) {
+                g_targetYawDeg = _imuYaw;
+                _yawLockNeedsResync = false;
+            }
         }
     }
 }
@@ -107,6 +116,10 @@ const float wheel_Turn_SuperSlow = 0.800;
 
 const float YAW_LOCK_KP = 6.0;
 
+const float YAW_LOCK_KD = 0.20;
+
+const float YAW_LOCK_DEADBAND_DEG = 0.3;
+
 Relay relay1(Relay1);
 Relay relay2(Relay2);
 Relay relay3(Relay3);
@@ -120,6 +133,20 @@ HardwareSerial ArmSerial(2);
 unsigned long prev_wheel_send_time = 0;
 unsigned long prev_imu_print_time = 0;
 const unsigned long IMU_PRINT_RATE = 10;
+
+float computeYawLockOmega(float targetYawDeg, float currentYawDeg, float currentYawRateRad, float maxOmega) {
+    float yawErrorDeg = wrapAngle180(targetYawDeg - currentYawDeg);
+
+    if (fabsf(yawErrorDeg) < YAW_LOCK_DEADBAND_DEG) {
+        yawErrorDeg = 0.000;
+    }
+
+    float yawErrorRad = yawErrorDeg * DEG_TO_RAD;
+
+    float omega = (yawErrorRad * YAW_LOCK_KP) - (currentYawRateRad * YAW_LOCK_KD);
+
+    return constrain(omega, -maxOmega, maxOmega);
+}
 
 void updateControl(){
     if (ps5.isConnected()){
@@ -154,13 +181,7 @@ void updateControl(){
         if (manualTurn) {
             g_targetYawDeg = _imuYaw;
         } else if (x != 0.000 || y != 0.000) {
-            float yawErrorDeg = wrapAngle180(g_targetYawDeg - _imuYaw);
-            // omega ที่ส่งให้ wheel slave เป็นหน่วย rad/s (ตาม Kinematics::calculateRPM)
-            // ต้องแปลง yawError จากองศาเป็นเรเดียนก่อนคูณ Kp มิฉะนั้น error องศาเดียว
-            // จะกลายเป็นคำสั่ง omega ที่ใหญ่เกินจริง ทำให้ turn_speed ตัดอิ่มตัวแทบทุกครั้ง (bang-bang)
-            float yawErrorRad = yawErrorDeg * DEG_TO_RAD;
-            w = yawErrorRad * YAW_LOCK_KP;
-            w = constrain(w, -turn_speed, turn_speed);
+            w = computeYawLockOmega(g_targetYawDeg, _imuYaw, _imuYawRateRadPerSec, turn_speed);
         } else {
             g_targetYawDeg = _imuYaw;
         }
@@ -265,7 +286,6 @@ void setup(){
         _imuReady = false;
     } else {
         Serial.println(F(">> BNO085 Found!"));
-        // ใช้ Gyro Integrated RV interval 2500us = 400Hz (เร็วกว่า rotation vector เดิม, เหมาะกับ master loop 80Hz)
         if (!_bno08x.enableReport(SH2_GYRO_INTEGRATED_RV, IMU_REPORT_INTERVAL_US)) {
             Serial.println(F(">> Could not enable gyro integrated RV"));
         } else {
