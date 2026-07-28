@@ -41,19 +41,22 @@ long Wheel::getCount(){
 }
 
 void Wheel::debugRPM(){
+    Serial.print(">");
     Serial.print(this->_wheelName);
-    Serial.print(" RPM: ");
+    Serial.print("_RPM:");
     Serial.println(this->getRPM());
 }
 
 void Wheel::debugPWM(){
+    Serial.print(">");
     Serial.print(this->_wheelName);
-    Serial.print(" PWM: ");
+    Serial.print("_PWM:");
     Serial.println(this->getPWM());
 }
 
 void Wheel::debugCount(){
+    Serial.print(">");
     Serial.print(this->_wheelName);
-    Serial.print(" Count: ");
+    Serial.print("_Count:");
     Serial.println(this->getCount());
 }

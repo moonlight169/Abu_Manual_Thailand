@@ -24,14 +24,14 @@ float g_req_linear_vel_x = 0;
 float g_req_linear_vel_y = 0;
 float g_req_angular_vel_z = 0;
 
-int current_rpm1, current_rpm2, current_rpm3, current_rpm4;
+int current_rpm1 = 0, current_rpm2 = 0, current_rpm3 = 0, current_rpm4 = 0;
 
 unsigned long prev_control_time = 0;
 unsigned long g_prev_command_time = 0;
 unsigned long prev_debug_time = 0;
 
 #define COMMAND_RATE 100          // Hz
-#define WHEEL_CMD_TIMEOUT_MS 300 // ms
+#define WHEEL_CMD_TIMEOUT_MS 1000 // ms
 #define DEBUG_RATE 5             // Hz
 
 void isrFL_A() { wheelFL.handleA(); }
@@ -54,7 +54,9 @@ void setup(){
     delay(500);
     Serial1.begin(115200);
     delay(500);
-
+    
+    Serial.println("Robot Start...");
+    
     wheelFL.run(0);
     wheelFR.run(0);
     wheelRL.run(0);
@@ -74,11 +76,7 @@ void setup(){
 }
 
 void loop() {
-    current_rpm1 = wheelFL.getRPM();
-    current_rpm2 = wheelFR.getRPM();
-    current_rpm3 = wheelRL.getRPM();
-    current_rpm4 = wheelRR.getRPM();
-
+    // 1. รับค่าคำสั่งจาก Serial1 ให้เร็วที่สุด
     while (Serial1.available() > 0){
         uint8_t incomingByte = Serial1.read();
         wheelReceiverFeed(wheelReceiver, incomingByte);
@@ -101,7 +99,15 @@ void loop() {
     }
 
     unsigned long now = millis();
+    
+    // 2. Control Loop ทำงานที่ 100Hz (10ms) เพื่อคำนวณ PID และสั่งมอเตอร์
     if ((now - prev_control_time) >= (1000 / COMMAND_RATE)){
+        // อ่านค่า RPM ในลูปควบคุม เพื่อให้ Time interval (dt) คงที่
+        current_rpm1 = wheelFL.getRPM();
+        current_rpm2 = wheelFR.getRPM();
+        current_rpm3 = wheelRL.getRPM();
+        current_rpm4 = wheelRR.getRPM();
+
         if (commandTimedOut){
             stopBase();
         } else {
@@ -110,43 +116,44 @@ void loop() {
         prev_control_time = now;
     }
 
+    // 3. Debug Loop ทำงานที่ 5Hz สำหรับ Print ค่าออกจอ (ไม่หน่วงลูปหลัก)
     if ((now - prev_debug_time) >= (1000 / DEBUG_RATE)){
-        // wheelFL.debugRPM();
-        // wheelFR.debugRPM();
-        // wheelRL.debugRPM();
-        // wheelRR.debugRPM();
+        // เปิดคอมเมนต์ตรงนี้ถ้าต้องการดูค่าความเร็วที่ส่งเข้ามา
+        // Serial.print("Req Vx: ");
+        // Serial.println(g_req_linear_vel_x);
 
-        // wheelFL.debugPWM();
-        // wheelFR.debugPWM();
-        // wheelRL.debugPWM();
-        // wheelRR.debugPWM();
+        wheelFL.debugRPM();
+        wheelFR.debugRPM();
+        wheelRL.debugRPM();
+        wheelRR.debugRPM();
 
-        // wheelFL.debugCount();
-        // wheelFR.debugCount();
-        // wheelRL.debugCount();
-        // wheelRR.debugCount();
+        wheelFL.debugPWM();
+        wheelFR.debugPWM();
+        wheelRL.debugPWM();
+        wheelRR.debugPWM();
+
         prev_debug_time = now;
     }
-    // wheelFL.run(0);
-    // wheelFR.run(250);
-    // wheelRL.run(0);
-    // wheelRR.run(0);
+    
 }
 
 void moveBase()
 {
     Kinematics::rpm req_rpm = kinematics.getRPM(g_req_linear_vel_x, g_req_linear_vel_y, g_req_angular_vel_z);
 
-    wheelFL.smoothRun(MotorFL_Pid.compute(req_rpm.motor1, current_rpm1));
-    wheelFR.smoothRun(MotorFR_Pid.compute(req_rpm.motor2, current_rpm2));
-    wheelRL.smoothRun(MotorRL_Pid.compute(req_rpm.motor3, current_rpm3));
-    wheelRR.smoothRun(MotorRR_Pid.compute(req_rpm.motor4, current_rpm4));
+    wheelFL.run(MotorFL_Pid.compute(req_rpm.motor1, current_rpm1));
+    wheelFR.run(MotorFR_Pid.compute(req_rpm.motor2, current_rpm2));
+    wheelRL.run(MotorRL_Pid.compute(req_rpm.motor3, current_rpm3));
+    wheelRR.run(MotorRR_Pid.compute(req_rpm.motor4, current_rpm4));
 }
 
 void stopBase()
 {
-    wheelFL.smoothRun(0);
-    wheelFR.smoothRun(0);
-    wheelRL.smoothRun(0);
-    wheelRR.smoothRun(0);
+    // รีเซ็ตค่า Error ใน PID ป้องกันมอเตอร์กระตุกเวลาเริ่มเดินใหม่
+    // MotorFL_Pid.reset(); // ถ้าไลบรารี PID ของคุณมีฟังก์ชัน reset ขอแนะนำให้เรียกใช้ตอนหยุด
+    
+    wheelFL.run(0);
+    wheelFR.run(0);
+    wheelRL.run(0);
+    wheelRR.run(0);
 }

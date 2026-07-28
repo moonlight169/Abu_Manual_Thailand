@@ -66,19 +66,30 @@ Kinematics::rpm Kinematics::calculateRPM(float linear_x, float linear_y, float a
     // calculate for the target motor RPM and direction
     // front-left motor
     rpm.motor1 = x_rpm - y_rpm - tan_rpm;
-    rpm.motor1 = constrain(rpm.motor1, -max_rpm_, max_rpm_);
 
     // front-right motor
     rpm.motor2 = x_rpm + y_rpm + tan_rpm;
-    rpm.motor2 = constrain(rpm.motor2, -max_rpm_, max_rpm_);
 
     // rear-left motor
     rpm.motor3 = x_rpm + y_rpm - tan_rpm;
-    rpm.motor3 = constrain(rpm.motor3, -max_rpm_, max_rpm_);
 
     // rear-right motor
     rpm.motor4 = x_rpm - y_rpm + tan_rpm;
-    rpm.motor4 = constrain(rpm.motor4, -max_rpm_, max_rpm_);
+
+    // หาล้อที่มีค่าสัมบูรณ์สูงสุด ถ้าเกิน max_rpm_ ให้ scale ทั้ง 4 ล้อลงตามสัดส่วนเดียวกัน
+    // (ห้าม constrain แยกล้อ เพราะจะทำลายสัดส่วนเวกเตอร์ตอนเดินหน้า+เลี้ยวพร้อมกัน)
+    float maxAbsRpm = fabsf((float)rpm.motor1);
+    maxAbsRpm = max(maxAbsRpm, fabsf((float)rpm.motor2));
+    maxAbsRpm = max(maxAbsRpm, fabsf((float)rpm.motor3));
+    maxAbsRpm = max(maxAbsRpm, fabsf((float)rpm.motor4));
+
+    if (maxAbsRpm > max_rpm_) {
+        float scale = max_rpm_ / maxAbsRpm;
+        rpm.motor1 *= scale;
+        rpm.motor2 *= scale;
+        rpm.motor3 *= scale;
+        rpm.motor4 *= scale;
+    }
 
     return rpm;
 }

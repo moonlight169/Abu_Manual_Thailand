@@ -102,23 +102,31 @@ bool g_liftMode = false;
 const int STICK_DEADZONE = 10;
 
 //----------------------------------------
-const float wheel_Walk_Normal = 1.800;
+const float wheel_Walk_Normal = 3.50;
 const float wheel_Walk_Slow = 0.700;
 const float wheel_Walk_SuperSlow = 0.300;
 
-const float wheel_Slide_Normal = 1.800;
+const float wheel_Slide_Normal = 3.200;
 const float wheel_Slide_Slow = 0.700;
 const float wheel_Slide_SuperSlow = 0.300;
 
-const float wheel_Turn_Normal = 4.000;
+const float wheel_Turn_Normal = 9.800;
 const float wheel_Turn_Slow = 2.000;
 const float wheel_Turn_SuperSlow = 0.800;
 
-const float YAW_LOCK_KP = 6.0;
+const float YAW_LOCK_KP = 6.5;
 
-const float YAW_LOCK_KD = 0.20;
+const float YAW_LOCK_KD = 0.30;
 
 const float YAW_LOCK_DEADBAND_DEG = 0.3;
+
+// เกณฑ์อัตราการหมุน (deg/s) ที่ถือว่าหุ่นยนต์ "นิ่งจริง" แล้วหลังปล่อยปุ่มเลี้ยว
+// ก่อนถึงเกณฑ์นี้จะยังไม่ล็อก yaw เพื่อไม่ให้แรงเฉื่อยตกค้างทำให้เกิดอาการดึงกลับ
+const float YAW_LOCK_ENGAGE_RATE_DEG_PER_SEC = 5.0;
+//ถ้ายังรู้สึกดึงกลับอยู่บ้าง → ลดค่าให้เข้มขึ้น (เช่น 2-3°/s) ให้รอจนนิ่งจริงๆ ก่อนล็อก
+//ถ้ารู้สึกว่าหุ่นยนต์ "เบี้ยว" ไปนานก่อนจะล็อก (แก้ไขช้าเกินไป) → เพิ่มค่าขึ้น (เช่น 8-10°/s)
+
+static bool _yawLockEngaged = false;
 
 Relay relay1(Relay1);
 Relay relay2(Relay2);
@@ -180,10 +188,24 @@ void updateControl(){
 
         if (manualTurn) {
             g_targetYawDeg = _imuYaw;
+            _yawLockEngaged = false;
         } else if (x != 0.000 || y != 0.000) {
-            w = computeYawLockOmega(g_targetYawDeg, _imuYaw, _imuYawRateRadPerSec, turn_speed);
+            if (!_yawLockEngaged) {
+                float yawRateDegPerSec = fabsf(_imuYawRateRadPerSec * RAD_TO_DEG);
+                if (yawRateDegPerSec < YAW_LOCK_ENGAGE_RATE_DEG_PER_SEC) {
+                    g_targetYawDeg = _imuYaw;
+                    _yawLockEngaged = true;
+                } else {
+                    g_targetYawDeg = _imuYaw;
+                }
+            }
+
+            if (_yawLockEngaged) {
+                w = computeYawLockOmega(g_targetYawDeg, _imuYaw, _imuYawRateRadPerSec, turn_speed);
+            }
         } else {
             g_targetYawDeg = _imuYaw;
+            _yawLockEngaged = false;
         }
 
         velocity.valX = x;
@@ -269,6 +291,7 @@ void armControl(){
 void setup(){
     Serial.begin(115200);
     joyInput.begin();
+    Serial.print("start");
 
     Wire.begin(SDA, SCL, 100000);
     relay1.write(1);
@@ -297,13 +320,17 @@ void setup(){
 
 void loop() {
     updateImu();
-
     unsigned long now = millis();
 
     if ((now - prev_imu_print_time) >= (1000 / IMU_PRINT_RATE)) {
+        if (ps5.isConnected()){
+            Serial.println("Connected!");
+        } else {
+            Serial.println("DisConnected!");
+        }
         prev_imu_print_time = now;
-        Serial.print("Yaw: ");
-        Serial.println(_imuYaw);
+        // Serial.print("Yaw: ");
+        // Serial.println(_imuYaw);
     }
 
     if ((now - prev_wheel_send_time) >= (1000 / COMMAND_RATE)) {
