@@ -23,6 +23,7 @@ PID MotorRR_Pid(PWM_MIN, PWM_MAX, RR_K_P, RR_K_I, RR_K_D);
 float g_req_linear_vel_x = 0;
 float g_req_linear_vel_y = 0;
 float g_req_angular_vel_z = 0;
+float g_gyro_yaw_deg = 0;
 
 int current_rpm1 = 0, current_rpm2 = 0, current_rpm3 = 0, current_rpm4 = 0;
 Kinematics::rpm g_req_rpm;
@@ -77,7 +78,6 @@ void setup(){
 }
 
 void loop() {
-    // 1. รับค่าคำสั่งจาก Serial1 ให้เร็วที่สุด
     while (Serial1.available() > 0){
         uint8_t incomingByte = Serial1.read();
         wheelReceiverFeed(wheelReceiver, incomingByte);
@@ -87,6 +87,7 @@ void loop() {
         g_req_linear_vel_x = wheelReceiver.lastCommand.vx;
         g_req_linear_vel_y = wheelReceiver.lastCommand.vy;
         g_req_angular_vel_z = wheelReceiver.lastCommand.omega;
+        g_gyro_yaw_deg = wheelReceiver.lastCommand.yaw;
         g_prev_command_time = millis();
         wheelReceiver.hasNewCommand = false;
     }
@@ -103,7 +104,6 @@ void loop() {
     
     // 2. Control Loop ทำงานที่ 100Hz (10ms) เพื่อคำนวณ PID และสั่งมอเตอร์
     if ((now - prev_control_time) >= (1000 / COMMAND_RATE)){
-        // อ่านค่า RPM ในลูปควบคุม เพื่อให้ Time interval (dt) คงที่
         current_rpm1 = wheelFL.getRPM();
         current_rpm2 = wheelFR.getRPM();
         current_rpm3 = wheelRL.getRPM();
@@ -119,7 +119,6 @@ void loop() {
 
     // 3. Debug Loop ทำงานที่ 5Hz สำหรับ Print ค่าออกจอ (ไม่หน่วงลูปหลัก)
     if ((now - prev_debug_time) >= (1000 / DEBUG_RATE)){
-        // เปิดคอมเมนต์ตรงนี้ถ้าต้องการดูค่าความเร็วที่ส่งเข้ามา
         // Serial.print("Req Vx: ");
         // Serial.println(g_req_linear_vel_x);
 
@@ -133,12 +132,11 @@ void loop() {
         wheelRL.debugPWM();
         wheelRR.debugPWM();
 
-        // Debug เทียบ RPM เป้าหมาย (Req) กับ RPM จริง (Cur) ต่อล้อ
-        // ถ้าล้อไหนหมุนกลับขั้ว Cur จะไม่ยอมวิ่งเข้าหา Req เลย (มักติดลบสวนทาง) และ PWM จะค้างที่ +-255
         Serial.print(">FL_Req:"); Serial.println(g_req_rpm.motor1);
         Serial.print(">FR_Req:"); Serial.println(g_req_rpm.motor2);
         Serial.print(">RL_Req:"); Serial.println(g_req_rpm.motor3);
         Serial.print(">RR_Req:"); Serial.println(g_req_rpm.motor4);
+        Serial.print(">Gyro_Yaw:"); Serial.println(g_gyro_yaw_deg);
 
         prev_debug_time = now;
     }
@@ -157,9 +155,6 @@ void moveBase()
 
 void stopBase()
 {
-    // รีเซ็ตค่า Error ใน PID ป้องกันมอเตอร์กระตุกเวลาเริ่มเดินใหม่
-    // MotorFL_Pid.reset(); // ถ้าไลบรารี PID ของคุณมีฟังก์ชัน reset ขอแนะนำให้เรียกใช้ตอนหยุด
-    
     wheelFL.run(0);
     wheelFR.run(0);
     wheelRL.run(0);

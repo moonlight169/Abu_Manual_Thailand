@@ -16,6 +16,7 @@ struct WheelCommand{
     float vx;
     float vy;
     float omega;
+    float yaw; // gyroYawDeg จาก Master (องศา, normalize -180..180)
 };
 
 struct WheelFrame{
@@ -74,7 +75,7 @@ struct MotorReceiver{
 
 uint8_t calculateChecksum(const uint8_t* data, uint8_t len);
 void wheelReceiverFeed(WheelReceiver &receiver, uint8_t incomingByte);
-void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega);
+void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega, float yaw);
 
 void motorReceiverFeed(MotorReceiver &receiver, uint8_t incomingByte);
 void sendArmCommand(HardwareSerial &port, int16_t arm_pwm);

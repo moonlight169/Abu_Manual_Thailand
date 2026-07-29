@@ -348,28 +348,28 @@ void loop() {
     readGyro();
     readSerialCommand();
     
-    if ((now - prev_imu_print_time) >= (1000 / IMU_PRINT_RATE)) {
-        Serial.print("GYRO,");
+    // if ((now - prev_imu_print_time) >= (1000 / IMU_PRINT_RATE)) {
+    //     Serial.print("GYRO,");
 
-        if (gyroOnline)
-            Serial.print("ONLINE");
-        else
-            Serial.print("OFFLINE");
+    //     if (gyroOnline)
+    //         Serial.print("ONLINE");
+    //     else
+    //         Serial.print("OFFLINE");
 
-        Serial.print(",Roll=");
-        Serial.print(gyroRollDeg, 2);
+    //     Serial.print(",Roll=");
+    //     Serial.print(gyroRollDeg, 2);
 
-        Serial.print(",Pitch=");
-        Serial.print(gyroPitchDeg, 2);
+    //     Serial.print(",Pitch=");
+    //     Serial.print(gyroPitchDeg, 2);
 
-        Serial.print(",Yaw=");
-        Serial.print(gyroYawDeg, 2);
+    //     Serial.print(",Yaw=");
+    //     Serial.print(gyroYawDeg, 2);
 
-        Serial.print(",YawRad=");
-        Serial.println(gyroHeadingRad, 4);
+    //     Serial.print(",YawRad=");
+    //     Serial.println(gyroHeadingRad, 4);
 
-        prev_imu_print_time = now;
-    }
+    //     prev_imu_print_time = now;
+    // }
 
     if ((now - prev_wheel_send_time) >= (1000 / COMMAND_RATE)) {
         prev_wheel_send_time = now;
@@ -377,7 +377,7 @@ void loop() {
         joyInput.update();
 
         updateControl();
-        sendWheelCommand(WheelSerial, velocity.valX, velocity.valY, velocity.valW);
+        sendWheelCommand(WheelSerial, velocity.valX, velocity.valY, velocity.valW, gyroYawDeg);
 
         armControl();
         sendArmCommand(ArmSerial, arm_pwm);
