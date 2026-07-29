@@ -119,24 +119,8 @@ void loop() {
 
     // 3. Debug Loop ทำงานที่ 5Hz สำหรับ Print ค่าออกจอ (ไม่หน่วงลูปหลัก)
     if ((now - prev_debug_time) >= (1000 / DEBUG_RATE)){
-        // Serial.print("Req Vx: ");
-        // Serial.println(g_req_linear_vel_x);
-
-        wheelFL.debugRPM();
-        wheelFR.debugRPM();
-        wheelRL.debugRPM();
-        wheelRR.debugRPM();
-
-        wheelFL.debugPWM();
-        wheelFR.debugPWM();
-        wheelRL.debugPWM();
-        wheelRR.debugPWM();
-
-        Serial.print(">FL_Req:"); Serial.println(g_req_rpm.motor1);
-        Serial.print(">FR_Req:"); Serial.println(g_req_rpm.motor2);
-        Serial.print(">RL_Req:"); Serial.println(g_req_rpm.motor3);
-        Serial.print(">RR_Req:"); Serial.println(g_req_rpm.motor4);
-        Serial.print(">Gyro_Yaw:"); Serial.println(g_gyro_yaw_deg);
+        Serial.print(">Angular_Z:"); Serial.println(g_req_angular_vel_z);
+        Serial.print(">Yaw_Global:"); Serial.println(g_gyro_yaw_deg);
 
         prev_debug_time = now;
     }
@@ -145,7 +129,15 @@ void loop() {
 
 void moveBase()
 {
-    g_req_rpm = kinematics.getRPM(g_req_linear_vel_x, g_req_linear_vel_y, g_req_angular_vel_z);
+
+    float yaw_rad = g_gyro_yaw_deg * (PI / 180.0f);
+    float cos_yaw = cosf(yaw_rad);
+    float sin_yaw = sinf(yaw_rad);
+
+    float body_vel_x =  cos_yaw * g_req_linear_vel_x + sin_yaw * g_req_linear_vel_y;
+    float body_vel_y = -sin_yaw * g_req_linear_vel_x + cos_yaw * g_req_linear_vel_y;
+
+    g_req_rpm = kinematics.getRPM(body_vel_x, body_vel_y, g_req_angular_vel_z);
 
     wheelFL.run(MotorFL_Pid.compute(g_req_rpm.motor1, current_rpm1));
     wheelFR.run(MotorFR_Pid.compute(g_req_rpm.motor2, current_rpm2));
