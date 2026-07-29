@@ -367,6 +367,8 @@ void loop() {
 
         Serial.print(",YawRad=");
         Serial.println(gyroHeadingRad, 4);
+
+        prev_imu_print_time = now;
     }
 
     if ((now - prev_wheel_send_time) >= (1000 / COMMAND_RATE)) {
