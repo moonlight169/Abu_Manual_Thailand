@@ -1,3 +1,6 @@
+#ifndef CONFIG_ARM_H
+#define CONFIG_ARM_H
+
 #define MotorBox_A PB0
 #define MotorBox_B PB1
 
@@ -15,3 +18,9 @@
 
 #define LimitSW_Lift_Up PB4
 #define LimitSW_Lift_Down PB5
+
+#define ARM_DEBUG 0
+
+#define ARM_DEBUG_RATE 5 // Hz
+
+#endif
