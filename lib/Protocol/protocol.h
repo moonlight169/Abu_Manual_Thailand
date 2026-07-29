@@ -12,11 +12,14 @@
 #define CMD_BOX 0x02
 #define CMD_LIFT 0x03
 
+#define WHEEL_FLAG_GYRO_VALID 0x01
+
 struct WheelCommand{
     float vx;
     float vy;
     float omega;
-    float yaw; // gyroYawDeg จาก Master (องศา, normalize -180..180)
+    float yaw;
+    uint8_t flags;
 };
 
 struct WheelFrame{
@@ -75,7 +78,7 @@ struct MotorReceiver{
 
 uint8_t calculateChecksum(const uint8_t* data, uint8_t len);
 void wheelReceiverFeed(WheelReceiver &receiver, uint8_t incomingByte);
-void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega, float yaw);
+void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega, float yaw, uint8_t flags);
 
 void motorReceiverFeed(MotorReceiver &receiver, uint8_t incomingByte);
 void sendArmCommand(HardwareSerial &port, int16_t arm_pwm);

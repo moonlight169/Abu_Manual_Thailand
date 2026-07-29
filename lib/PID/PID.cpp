@@ -45,6 +45,13 @@ void PID::updateConstants(float kp, float ki, float kd)
     prev_error_ = 0;
 }
 
+void PID::reset()
+{
+    integral_ = 0;
+    derivative_ = 0;
+    prev_error_ = 0;
+}
+
 void PID::limitIntegral(float i_min, float i_max)
 {
     integral_min_ = i_min;

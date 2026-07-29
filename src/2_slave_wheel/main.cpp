@@ -20,20 +20,31 @@ PID MotorFR_Pid(PWM_MIN, PWM_MAX, FR_K_P, FR_K_I, FR_K_D);
 PID MotorRL_Pid(PWM_MIN, PWM_MAX, RL_K_P, RL_K_I, RL_K_D);
 PID MotorRR_Pid(PWM_MIN, PWM_MAX, RR_K_P, RR_K_I, RR_K_D);
 
+PID Heading_Pid(-HEADING_MAX_RPM, HEADING_MAX_RPM, HEAD_K_P, HEAD_K_I, HEAD_K_D);
+
 float g_req_linear_vel_x = 0;
 float g_req_linear_vel_y = 0;
 float g_req_angular_vel_z = 0;
 float g_gyro_yaw_deg = 0;
 
-int current_rpm1 = 0, current_rpm2 = 0, current_rpm3 = 0, current_rpm4 = 0;
+bool g_gyro_valid = false;
+bool g_has_received_command = false;
+
+bool  g_heading_active = false;
+float g_heading_target_deg = 0;
+float g_heading_error_deg = 0;
+float g_heading_correction = 0;
+float g_prev_gyro_yaw_deg = 0;
+
+float current_rpm1 = 0, current_rpm2 = 0, current_rpm3 = 0, current_rpm4 = 0;
 Kinematics::rpm g_req_rpm;
 
 unsigned long prev_control_time = 0;
 unsigned long g_prev_command_time = 0;
 unsigned long prev_debug_time = 0;
 
-#define COMMAND_RATE 100          // Hz
-#define WHEEL_CMD_TIMEOUT_MS 1000 // ms
+#define COMMAND_RATE 100         // Hz
+#define WHEEL_CMD_TIMEOUT_MS 300 // ms
 #define DEBUG_RATE 5             // Hz
 
 void isrFL_A() { wheelFL.handleA(); }
@@ -50,15 +61,24 @@ void isrRR_B() { wheelRR.handleB(); }
 
 void moveBase();
 void stopBase();
+float normalizeAngleDeg(float angle_deg);
+void resetHeadingAssist();
+void scaleRpmWithinLimit(float rpm[4]);
 
 void setup(){
     Serial.begin(115200);
-    delay(500);
     Serial1.begin(115200);
-    delay(500);
-    
+
     Serial.println("Robot Start...");
-    
+
+    MotorFL_Pid.limitIntegral(-WHEEL_I_LIMIT, WHEEL_I_LIMIT);
+    MotorFR_Pid.limitIntegral(-WHEEL_I_LIMIT, WHEEL_I_LIMIT);
+    MotorRL_Pid.limitIntegral(-WHEEL_I_LIMIT, WHEEL_I_LIMIT);
+    MotorRR_Pid.limitIntegral(-WHEEL_I_LIMIT, WHEEL_I_LIMIT);
+
+    Heading_Pid.limitIntegral(-HEADING_I_LIMIT, HEADING_I_LIMIT);
+    resetHeadingAssist();
+
     wheelFL.run(0);
     wheelFR.run(0);
     wheelRL.run(0);
@@ -88,21 +108,25 @@ void loop() {
         g_req_linear_vel_y = wheelReceiver.lastCommand.vy;
         g_req_angular_vel_z = wheelReceiver.lastCommand.omega;
         g_gyro_yaw_deg = wheelReceiver.lastCommand.yaw;
+        g_gyro_valid = (wheelReceiver.lastCommand.flags & WHEEL_FLAG_GYRO_VALID) != 0;
         g_prev_command_time = millis();
+        g_has_received_command = true;
         wheelReceiver.hasNewCommand = false;
     }
 
-    bool commandTimedOut = (millis() - g_prev_command_time) > WHEEL_CMD_TIMEOUT_MS;
+    unsigned long now = millis();
+
+    bool commandTimedOut = (!g_has_received_command) ||
+                           ((now - g_prev_command_time) > WHEEL_CMD_TIMEOUT_MS);
 
     if (commandTimedOut){
         g_req_linear_vel_x = 0;
         g_req_linear_vel_y = 0;
         g_req_angular_vel_z = 0;
+
+        g_gyro_valid = false;
     }
 
-    unsigned long now = millis();
-    
-    // 2. Control Loop ทำงานที่ 100Hz (10ms) เพื่อคำนวณ PID และสั่งมอเตอร์
     if ((now - prev_control_time) >= (1000 / COMMAND_RATE)){
         current_rpm1 = wheelFL.getRPM();
         current_rpm2 = wheelFR.getRPM();
@@ -110,6 +134,7 @@ void loop() {
         current_rpm4 = wheelRR.getRPM();
 
         if (commandTimedOut){
+            resetHeadingAssist();
             stopBase();
         } else {
             moveBase();
@@ -117,38 +142,197 @@ void loop() {
         prev_control_time = now;
     }
 
-    // 3. Debug Loop ทำงานที่ 5Hz สำหรับ Print ค่าออกจอ (ไม่หน่วงลูปหลัก)
+#if WHEEL_DEBUG
     if ((now - prev_debug_time) >= (1000 / DEBUG_RATE)){
-        Serial.print(">Angular_Z:"); Serial.println(g_req_angular_vel_z);
-        Serial.print(">Yaw_Global:"); Serial.println(g_gyro_yaw_deg);
+        // คำสั่งความเร็วที่รับมาจาก Master
+        Serial.print("CMD,");
+
+        Serial.print("vx=");
+        Serial.print(g_req_linear_vel_x, 2);
+
+        Serial.print(",vy=");
+        Serial.print(g_req_linear_vel_y, 2);
+
+        Serial.print(",omega=");
+        Serial.print(g_req_angular_vel_z, 2);
+
+        Serial.print(",timeout=");
+        Serial.println(commandTimedOut ? 1 : 0);
+
+        // มุม Yaw ที่ส่งมาพร้อมคำสั่ง
+        Serial.print("GYRO,");
+
+        Serial.print("yaw=");
+        Serial.print(g_gyro_yaw_deg, 2);
+
+        Serial.print(",valid=");
+        Serial.println(g_gyro_valid ? 1 : 0);
+
+        // สถานะ heading assist (ล็อกหัวหุ่นตอนวิ่งตรง)
+        Serial.print("HEAD,");
+
+        Serial.print("active=");
+        Serial.print(g_heading_active ? 1 : 0);
+
+        Serial.print(",target=");
+        Serial.print(g_heading_target_deg, 2);
+
+        Serial.print(",error=");
+        Serial.print(g_heading_error_deg, 2);
+
+        Serial.print(",corr=");
+        Serial.println(g_heading_correction, 2);
+
+        // RPM เป้าหมาย (req) เทียบ RPM จริงจาก encoder (act) ใช้จูน PID
+        Serial.print("RPM,");
+
+        Serial.print("FL=");
+        Serial.print(g_req_rpm.motor1);
+        Serial.print("/");
+        Serial.print(current_rpm1, 1);
+
+        Serial.print(",FR=");
+        Serial.print(g_req_rpm.motor2);
+        Serial.print("/");
+        Serial.print(current_rpm2, 1);
+
+        Serial.print(",RL=");
+        Serial.print(g_req_rpm.motor3);
+        Serial.print("/");
+        Serial.print(current_rpm3, 1);
+
+        Serial.print(",RR=");
+        Serial.print(g_req_rpm.motor4);
+        Serial.print("/");
+        Serial.println(current_rpm4, 1);
 
         prev_debug_time = now;
     }
-    
+#endif
+
+}
+
+float normalizeAngleDeg(float angle_deg)
+{
+    angle_deg = fmodf(angle_deg + 180.0f, 360.0f);
+    if (angle_deg < 0.0f)
+        angle_deg += 360.0f;
+    return angle_deg - 180.0f;
+}
+
+void resetHeadingAssist()
+{
+    g_heading_active = false;
+    g_heading_target_deg = g_gyro_yaw_deg;
+    g_heading_error_deg = 0;
+    g_heading_correction = 0;
+
+    g_prev_gyro_yaw_deg = g_gyro_yaw_deg;
+
+    Heading_Pid.reset();
+}
+
+float updateHeadingAssist()
+{
+#if HEADING_ASSIST_ENABLED == 0
+    return 0.0f;
+#else
+    if (!g_gyro_valid){
+        resetHeadingAssist();
+        return 0.0f;
+    }
+
+    float yaw_step = fabsf(normalizeAngleDeg(g_gyro_yaw_deg - g_prev_gyro_yaw_deg));
+    g_prev_gyro_yaw_deg = g_gyro_yaw_deg;
+
+    if (yaw_step > HEADING_JUMP_LIMIT_DEG){
+        resetHeadingAssist();
+        return 0.0f;
+    }
+
+    bool commandingTurn  = fabsf(g_req_angular_vel_z) > HEADING_OMEGA_DEADZONE;
+    bool commandingDrive = (fabsf(g_req_linear_vel_x) > HEADING_MIN_CMD) ||
+                           (fabsf(g_req_linear_vel_y) > HEADING_MIN_CMD);
+
+    if (commandingTurn || !commandingDrive){
+        resetHeadingAssist();
+        return 0.0f;
+    }
+
+    if (!g_heading_active){
+        g_heading_active = true;
+        g_heading_target_deg = g_gyro_yaw_deg;
+        Heading_Pid.reset();
+    }
+
+    g_heading_error_deg = normalizeAngleDeg(g_heading_target_deg - g_gyro_yaw_deg);
+
+    if (fabsf(g_heading_error_deg) < HEADING_DEADBAND_DEG){
+        g_heading_correction = 0.0f;
+        return 0.0f;
+    }
+
+    g_heading_correction = HEADING_ASSIST_DIR * (float)Heading_Pid.compute(g_heading_error_deg, 0.0f);
+    return g_heading_correction;
+#endif
+}
+
+void scaleRpmWithinLimit(float rpm[4])
+{
+    float maxAbsRpm = 0.0f;
+
+    for (int i = 0; i < 4; i++){
+        float absRpm = fabsf(rpm[i]);
+        if (absRpm > maxAbsRpm){
+            maxAbsRpm = absRpm;
+        }
+    }
+
+    if (maxAbsRpm > (float)MAX_RPM){
+        float scale = (float)MAX_RPM / maxAbsRpm;
+
+        for (int i = 0; i < 4; i++){
+            rpm[i] *= scale;
+        }
+    }
 }
 
 void moveBase()
 {
+    g_req_rpm = kinematics.getRPM(g_req_linear_vel_x, g_req_linear_vel_y, g_req_angular_vel_z);
 
-    float yaw_rad = g_gyro_yaw_deg * (PI / 180.0f);
-    float cos_yaw = cosf(yaw_rad);
-    float sin_yaw = sinf(yaw_rad);
+    float trim = updateHeadingAssist();
 
-    float body_vel_x =  cos_yaw * g_req_linear_vel_x + sin_yaw * g_req_linear_vel_y;
-    float body_vel_y = -sin_yaw * g_req_linear_vel_x + cos_yaw * g_req_linear_vel_y;
+    float target_rpm[4];
+    target_rpm[0] = (float)g_req_rpm.motor1 - trim; // FL
+    target_rpm[1] = (float)g_req_rpm.motor2 + trim; // FR
+    target_rpm[2] = (float)g_req_rpm.motor3 - trim; // RL
+    target_rpm[3] = (float)g_req_rpm.motor4 + trim; // RR
 
-    g_req_rpm = kinematics.getRPM(body_vel_x, body_vel_y, g_req_angular_vel_z);
+    scaleRpmWithinLimit(target_rpm);
 
-    wheelFL.run(MotorFL_Pid.compute(g_req_rpm.motor1, current_rpm1));
-    wheelFR.run(MotorFR_Pid.compute(g_req_rpm.motor2, current_rpm2));
-    wheelRL.run(MotorRL_Pid.compute(g_req_rpm.motor3, current_rpm3));
-    wheelRR.run(MotorRR_Pid.compute(g_req_rpm.motor4, current_rpm4));
+    wheelFL.smoothRun(MotorFL_Pid.compute(target_rpm[0], current_rpm1));
+    wheelFR.smoothRun(MotorFR_Pid.compute(target_rpm[1], current_rpm2));
+    wheelRL.smoothRun(MotorRL_Pid.compute(target_rpm[2], current_rpm3));
+    wheelRR.smoothRun(MotorRR_Pid.compute(target_rpm[3], current_rpm4));
 }
 
 void stopBase()
 {
-    wheelFL.run(0);
-    wheelFR.run(0);
-    wheelRL.run(0);
-    wheelRR.run(0);
+    // เคลียร์ RPM เป้าหมายด้วย ไม่งั้นค่าใน debug จะค้างเลขเก่าตอนหุ่นหยุด
+    g_req_rpm.motor1 = 0;
+    g_req_rpm.motor2 = 0;
+    g_req_rpm.motor3 = 0;
+    g_req_rpm.motor4 = 0;
+
+    MotorFL_Pid.reset();
+    MotorFR_Pid.reset();
+    MotorRL_Pid.reset();
+    MotorRR_Pid.reset();
+    Heading_Pid.reset();
+
+    wheelFL.smoothRun(0);
+    wheelFR.smoothRun(0);
+    wheelRL.smoothRun(0);
+    wheelRR.smoothRun(0);
 }

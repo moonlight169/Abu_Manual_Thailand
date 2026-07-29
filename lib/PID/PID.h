@@ -10,6 +10,7 @@ public:
     double compute(float setpoint, float measured_value);
     void updateConstants(float kp, float ki, float kd);
     void limitIntegral(float i_min, float i_max); // ✅ Anti-Windup
+    void reset();                        
 
 private:
     float min_val_;

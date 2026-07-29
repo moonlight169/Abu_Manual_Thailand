@@ -12,6 +12,10 @@ sh2_SensorValue_t sensorValue;
 
 constexpr uint32_t IMU_REPORT_RATE_HZ = 30;
 
+constexpr uint32_t IMU_REPORT_INTERVAL_US = 1000000UL / IMU_REPORT_RATE_HZ;
+
+constexpr uint32_t GYRO_STALE_MS = 200;
+
 float gyroRollDeg = 0.0f;
 float gyroPitchDeg = 0.0f;
 float gyroRawYawDeg = 0.0f;
@@ -23,6 +27,11 @@ float gyroYawOffsetDeg = 0.0f;
 bool gyroOnline = false;
 uint32_t lastGyroMs = 0;
 uint32_t lastPrintMs = 0;
+
+bool gyroBeginOk = false;
+uint32_t gyroReportCount = 0;
+
+bool prevGyroValid = false;
 
 float normalizeAngleDeg(float angle)
 {
@@ -39,13 +48,13 @@ bool enableGyroReport()
 {
   return bno08x.enableReport(
       SH2_GAME_ROTATION_VECTOR,
-      IMU_REPORT_RATE_HZ);
+      IMU_REPORT_INTERVAL_US);
 }
 
 bool beginGyro()
 {
   Wire.begin(21, 22);
-  Wire.setClock(400000);
+  Wire.setClock(100000);
 
   Serial.println("Searching for BNO085...");
 
@@ -79,9 +88,15 @@ bool beginGyro()
 
   Serial.println("BNO085 READY");
   Serial.println("I2C SDA=21, SCL=22");
+  Serial.print("Report interval = ");
+  Serial.print(IMU_REPORT_INTERVAL_US);
+  Serial.print(" us (");
+  Serial.print(IMU_REPORT_RATE_HZ);
+  Serial.println(" Hz)");
   Serial.println("Send R to reset Yaw to 0");
   Serial.println();
 
+  gyroBeginOk = true;
   return true;
 }
 
@@ -134,7 +149,13 @@ void readGyro()
 
     gyroOnline = true;
     lastGyroMs = millis();
+    gyroReportCount++;
   }
+}
+
+bool isGyroValid()
+{
+  return gyroOnline && ((millis() - lastGyroMs) < GYRO_STALE_MS);
 }
 
 void resetGyroYaw()
@@ -215,6 +236,8 @@ HardwareSerial ArmSerial(2);
 unsigned long prev_wheel_send_time = 0;
 unsigned long prev_imu_print_time = 0;
 const unsigned long IMU_PRINT_RATE = 10;
+
+unsigned long g_arm_tx_count = 0;
 
 void updateControl(){
     if (ps5.isConnected()){
@@ -329,7 +352,6 @@ void setup(){
     joyInput.begin();
     Serial.print("start");
 
-    Wire.begin(SDA, SCL, 100000);
     relay1.write(1);
     relay2.write(1);
     relay3.write(1);
@@ -347,42 +369,91 @@ void loop() {
     unsigned long now = millis();
     readGyro();
     readSerialCommand();
+
+    // ยังไม่มี protocol ขากลับจาก arm แต่ระบายบัฟเฟอร์ทิ้งไว้กันค้าง
+    // ถ้าวันหลังมีสัญญาณรบกวนเข้ามา บัฟเฟอร์จะไม่เต็มแล้วบล็อกการรับของจริง
+    while (ArmSerial.available() > 0) {
+        ArmSerial.read();
+    }
     
-    // if ((now - prev_imu_print_time) >= (1000 / IMU_PRINT_RATE)) {
-    //     Serial.print("GYRO,");
+    if ((now - prev_imu_print_time) >= (1000 / IMU_PRINT_RATE)) {
+#if MASTER_DEBUG_GYRO
+        Serial.print("GYRO,");
 
-    //     if (gyroOnline)
-    //         Serial.print("ONLINE");
-    //     else
-    //         Serial.print("OFFLINE");
+        Serial.print("begin=");
+        Serial.print(gyroBeginOk ? 1 : 0);
 
-    //     Serial.print(",Roll=");
-    //     Serial.print(gyroRollDeg, 2);
+        Serial.print(",online=");
+        Serial.print(gyroOnline ? 1 : 0);
 
-    //     Serial.print(",Pitch=");
-    //     Serial.print(gyroPitchDeg, 2);
+        Serial.print(",valid=");
+        Serial.print(isGyroValid() ? 1 : 0);
 
-    //     Serial.print(",Yaw=");
-    //     Serial.print(gyroYawDeg, 2);
+        Serial.print(",rpt=");
+        Serial.print(gyroReportCount);
 
-    //     Serial.print(",YawRad=");
-    //     Serial.println(gyroHeadingRad, 4);
+        Serial.print(",age=");
+        Serial.print(now - lastGyroMs);
 
-    //     prev_imu_print_time = now;
-    // }
+        Serial.print(",roll=");
+        Serial.print(gyroRollDeg, 2);
+
+        Serial.print(",pitch=");
+        Serial.print(gyroPitchDeg, 2);
+
+        Serial.print(",yaw=");
+        Serial.println(gyroYawDeg, 2);
+#endif
+
+#if MASTER_DEBUG_ARM
+        Serial.print("ARMTX,");
+
+        Serial.print("tx=");
+        Serial.print(g_arm_tx_count);
+
+        Serial.print(",ps5=");
+        Serial.print(ps5.isConnected() ? 1 : 0);
+
+        Serial.print(",arm=");
+        Serial.print(arm_pwm);
+
+        Serial.print(",box=");
+        Serial.print(box_pwm);
+
+        Serial.print(",lift=");
+        Serial.println(lift_pwm);
+#endif
+
+        prev_imu_print_time = now;
+    }
 
     if ((now - prev_wheel_send_time) >= (1000 / COMMAND_RATE)) {
         prev_wheel_send_time = now;
 
         joyInput.update();
 
+        bool gyroValid = isGyroValid();
+
+        if (gyroValid != prevGyroValid){
+            if (gyroValid)
+                Serial.println("GYRO OK -> HEADING ASSIST ENABLED");
+            else
+                Serial.println("GYRO LOST -> HEADING ASSIST DISABLED");
+
+            prevGyroValid = gyroValid;
+        }
+        
+        float yawToSend = gyroValid ? gyroYawDeg : 0.0f;
+        uint8_t wheelFlags = gyroValid ? WHEEL_FLAG_GYRO_VALID : 0;
+
         updateControl();
-        sendWheelCommand(WheelSerial, velocity.valX, velocity.valY, velocity.valW, gyroYawDeg);
+        sendWheelCommand(WheelSerial, velocity.valX, velocity.valY, velocity.valW, yawToSend, wheelFlags);
 
         armControl();
         sendArmCommand(ArmSerial, arm_pwm);
         sendBoxCommand(ArmSerial, box_pwm);
         sendLiftCommand(ArmSerial, lift_pwm);
+        g_arm_tx_count++;
 
         digitalControl();
     }

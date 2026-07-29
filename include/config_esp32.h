@@ -1,3 +1,6 @@
+#ifndef CONFIG_ESP32_H
+#define CONFIG_ESP32_H
+
 #define MAC_PS5_WHITE "D4:2F:4B:00:DB:AB"
 #define MAC_PS5_RED "0c:27:56:1a:0c:6e"
 #define COMMAND_RATE 50
@@ -21,3 +24,8 @@
 #define Relay4 26
 #define Relay5 27
 #define Relay6 14
+
+#define MASTER_DEBUG_GYRO 0
+#define MASTER_DEBUG_ARM 0
+
+#endif

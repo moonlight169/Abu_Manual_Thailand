@@ -49,12 +49,16 @@ void wheelReceiverFeed(WheelReceiver &receiver, uint8_t incomingByte){
     }
 }
 
-void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega, float yaw){
+void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega, float yaw, uint8_t flags){
     WheelCommand cmd;
+    
+    memset(&cmd, 0, sizeof(cmd));
+
     cmd.vx = vx;
     cmd.vy = vy;
     cmd.omega = omega;
     cmd.yaw = yaw;
+    cmd.flags = flags;
 
     uint8_t payload[WHEEL_CMD_LEN];
     memcpy(payload, &cmd, WHEEL_CMD_LEN);

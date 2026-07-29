@@ -17,7 +17,7 @@ private:
     int _pinA;
     int _pinB;
     float _ppr;
-    float _rpm;
+    float _rpm = 0;
 
     volatile long _count = 0;
     unsigned long _lastTime = 0;
