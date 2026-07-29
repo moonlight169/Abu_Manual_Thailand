@@ -7,68 +7,156 @@
 
 #include "config_esp32.h"
 
-Adafruit_BNO08x _bno08x(BNO08X_RESET);
-sh2_SensorValue_t _sensorValue;
-static bool _imuReady = false;
+Adafruit_BNO08x bno08x(BNO08X_RESET);
+sh2_SensorValue_t sensorValue;
 
-static const uint32_t IMU_REPORT_INTERVAL_US = 2500;
+constexpr uint32_t IMU_REPORT_RATE_HZ = 30;
 
-static float _imuYaw = 0;
-static float _imuRoll = 0;
-static float _imuPitch = 0;
-static float _imuYawRateRadPerSec = 0;
+float gyroRollDeg = 0.0f;
+float gyroPitchDeg = 0.0f;
+float gyroRawYawDeg = 0.0f;
+float gyroYawDeg = 0.0f;
+float gyroHeadingRad = 0.0f;
 
-float g_targetYawDeg = 0.000;
+float gyroYawOffsetDeg = 0.0f;
 
-static bool _yawLockNeedsResync = true;
+bool gyroOnline = false;
+uint32_t lastGyroMs = 0;
+uint32_t lastPrintMs = 0;
 
-float wrapAngle180(float angleDeg) {
-    while (angleDeg > 180.000)  angleDeg -= 360.000;
-    while (angleDeg < -180.000) angleDeg += 360.000;
-    return angleDeg;
+float normalizeAngleDeg(float angle)
+{
+  while (angle > 180.0f)
+    angle -= 360.0f;
+
+  while (angle < -180.0f)
+    angle += 360.0f;
+
+  return angle;
 }
 
-static void quaternionToEuler(float qr, float qi, float qj, float qk,
-                              float &yaw, float &pitch, float &roll){
-    float sqr = qr * qr;
-    float sqi = qi * qi;
-    float sqj = qj * qj;
-    float sqk = qk * qk;
-
-    yaw = atan2f(2.0f * (qi * qj + qk * qr), (sqi - sqj - sqk + sqr));
-    pitch = asinf(-2.0f * (qi * qk - qj * qr) / (sqi + sqj + sqk + sqr));
-    roll = atan2f(2.0f * (qj * qk + qi * qr), (-sqi - sqj + sqk + sqr));
-
-    // แปลงเป็นองศา
-    yaw   *= RAD_TO_DEG;
-    pitch *= RAD_TO_DEG;
-    roll  *= RAD_TO_DEG;
-
-    yaw = wrapAngle180(yaw);
+bool enableGyroReport()
+{
+  return bno08x.enableReport(
+      SH2_GAME_ROTATION_VECTOR,
+      IMU_REPORT_RATE_HZ);
 }
 
-static void updateImu(){
-    if (!_imuReady) return;
-    if (_bno08x.wasReset()) {
-        _bno08x.enableReport(SH2_GYRO_INTEGRATED_RV, IMU_REPORT_INTERVAL_US);
-        _yawLockNeedsResync = true;
-    }
-    if (_bno08x.getSensorEvent(&_sensorValue)) {
-        if (_sensorValue.sensorId == SH2_GYRO_INTEGRATED_RV) {
-            float qw = _sensorValue.un.gyroIntegratedRV.real;
-            float qx = _sensorValue.un.gyroIntegratedRV.i;
-            float qy = _sensorValue.un.gyroIntegratedRV.j;
-            float qz = _sensorValue.un.gyroIntegratedRV.k;
-            quaternionToEuler(qw, qx, qy, qz, _imuYaw, _imuRoll, _imuPitch);
+bool beginGyro()
+{
+  Wire.begin(21, 22);
+  Wire.setClock(400000);
 
-            _imuYawRateRadPerSec = _sensorValue.un.gyroIntegratedRV.angVelZ;
+  Serial.println("Searching for BNO085...");
 
-            if (_yawLockNeedsResync) {
-                g_targetYawDeg = _imuYaw;
-                _yawLockNeedsResync = false;
-            }
-        }
+  bool found = bno08x.begin_I2C(0x4A, &Wire);
+
+  if (!found)
+  {
+    Serial.println("BNO085 not found at 0x4A, trying 0x4B...");
+    found = bno08x.begin_I2C(0x4B, &Wire);
+  }
+
+  if (!found)
+  {
+    Serial.println("ERROR: BNO085 NOT FOUND");
+    Serial.println("Check wiring:");
+    Serial.println("VIN -> 3.3V or 5V according to module");
+    Serial.println("GND -> GND");
+    Serial.println("SDA -> GPIO21");
+    Serial.println("SCL -> GPIO22");
+
+    gyroOnline = false;
+    return false;
+  }
+
+  if (!enableGyroReport())
+  {
+    Serial.println("ERROR: Cannot enable Game Rotation Vector");
+    gyroOnline = false;
+    return false;
+  }
+
+  Serial.println("BNO085 READY");
+  Serial.println("I2C SDA=21, SCL=22");
+  Serial.println("Send R to reset Yaw to 0");
+  Serial.println();
+
+  return true;
+}
+
+
+void readGyro()
+{
+  if (bno08x.wasReset())
+  {
+    gyroOnline = false;
+    Serial.println("WARNING: BNO085 was reset");
+
+    if (!enableGyroReport())
+    {
+      Serial.println("ERROR: Cannot restart gyro report");
+      return;
     }
+
+    Serial.println("BNO085 report restarted");
+  }
+
+  while (bno08x.getSensorEvent(&sensorValue))
+  {
+    if (sensorValue.sensorId != SH2_GAME_ROTATION_VECTOR)
+      continue;
+    const float qr = sensorValue.un.gameRotationVector.real;
+    const float qi = sensorValue.un.gameRotationVector.i;
+    const float qj = sensorValue.un.gameRotationVector.j;
+    const float qk = sensorValue.un.gameRotationVector.k;
+
+    const float rollRad = atan2f(
+        2.0f * (qr * qi + qj * qk),
+        1.0f - 2.0f * (qi * qi + qj * qj));
+
+    float sinPitch = 2.0f * (qr * qj - qk * qi);
+    sinPitch = constrain(sinPitch, -1.0f, 1.0f);
+    const float pitchRad = asinf(sinPitch);
+
+    const float yawRad = atan2f(
+        2.0f * (qr * qk + qi * qj),
+        1.0f - 2.0f * (qj * qj + qk * qk));
+
+    gyroRollDeg = rollRad * RAD_TO_DEG;
+    gyroPitchDeg = pitchRad * RAD_TO_DEG;
+    gyroRawYawDeg = yawRad * RAD_TO_DEG;
+
+    gyroYawDeg = normalizeAngleDeg(
+        gyroRawYawDeg - gyroYawOffsetDeg);
+
+    gyroHeadingRad = gyroYawDeg * DEG_TO_RAD;
+
+    gyroOnline = true;
+    lastGyroMs = millis();
+  }
+}
+
+void resetGyroYaw()
+{
+  gyroYawOffsetDeg = gyroRawYawDeg;
+  gyroYawDeg = 0.0f;
+  gyroHeadingRad = 0.0f;
+
+  Serial.println("BNO085 YAW RESET TO 0 DEG");
+}
+
+void readSerialCommand()
+{
+  while (Serial.available())
+  {
+    char command = Serial.read();
+
+    if (command == 'R' || command == 'r')
+    {
+      resetGyroYaw();
+    }
+  }
 }
 
 PS5Input joyInput(MAC_PS5_WHITE);
@@ -102,31 +190,17 @@ bool g_liftMode = false;
 const int STICK_DEADZONE = 10;
 
 //----------------------------------------
-const float wheel_Walk_Normal = 3.50;
+const float wheel_Walk_Normal = 8.00;
 const float wheel_Walk_Slow = 0.700;
 const float wheel_Walk_SuperSlow = 0.300;
 
-const float wheel_Slide_Normal = 3.200;
+const float wheel_Slide_Normal = 6.00;
 const float wheel_Slide_Slow = 0.700;
 const float wheel_Slide_SuperSlow = 0.300;
 
 const float wheel_Turn_Normal = 9.800;
 const float wheel_Turn_Slow = 2.000;
 const float wheel_Turn_SuperSlow = 0.800;
-
-const float YAW_LOCK_KP = 6.5;
-
-const float YAW_LOCK_KD = 0.30;
-
-const float YAW_LOCK_DEADBAND_DEG = 0.3;
-
-// เกณฑ์อัตราการหมุน (deg/s) ที่ถือว่าหุ่นยนต์ "นิ่งจริง" แล้วหลังปล่อยปุ่มเลี้ยว
-// ก่อนถึงเกณฑ์นี้จะยังไม่ล็อก yaw เพื่อไม่ให้แรงเฉื่อยตกค้างทำให้เกิดอาการดึงกลับ
-const float YAW_LOCK_ENGAGE_RATE_DEG_PER_SEC = 5.0;
-//ถ้ายังรู้สึกดึงกลับอยู่บ้าง → ลดค่าให้เข้มขึ้น (เช่น 2-3°/s) ให้รอจนนิ่งจริงๆ ก่อนล็อก
-//ถ้ารู้สึกว่าหุ่นยนต์ "เบี้ยว" ไปนานก่อนจะล็อก (แก้ไขช้าเกินไป) → เพิ่มค่าขึ้น (เช่น 8-10°/s)
-
-static bool _yawLockEngaged = false;
 
 Relay relay1(Relay1);
 Relay relay2(Relay2);
@@ -141,20 +215,6 @@ HardwareSerial ArmSerial(2);
 unsigned long prev_wheel_send_time = 0;
 unsigned long prev_imu_print_time = 0;
 const unsigned long IMU_PRINT_RATE = 10;
-
-float computeYawLockOmega(float targetYawDeg, float currentYawDeg, float currentYawRateRad, float maxOmega) {
-    float yawErrorDeg = wrapAngle180(targetYawDeg - currentYawDeg);
-
-    if (fabsf(yawErrorDeg) < YAW_LOCK_DEADBAND_DEG) {
-        yawErrorDeg = 0.000;
-    }
-
-    float yawErrorRad = yawErrorDeg * DEG_TO_RAD;
-
-    float omega = (yawErrorRad * YAW_LOCK_KP) - (currentYawRateRad * YAW_LOCK_KD);
-
-    return constrain(omega, -maxOmega, maxOmega);
-}
 
 void updateControl(){
     if (ps5.isConnected()){
@@ -183,30 +243,6 @@ void updateControl(){
 
         if (ps5.R1()) w -= turn_speed;
         if (ps5.L1()) w += turn_speed;
-
-        bool manualTurn = (w != 0.000);
-
-        if (manualTurn) {
-            g_targetYawDeg = _imuYaw;
-            _yawLockEngaged = false;
-        } else if (x != 0.000 || y != 0.000) {
-            if (!_yawLockEngaged) {
-                float yawRateDegPerSec = fabsf(_imuYawRateRadPerSec * RAD_TO_DEG);
-                if (yawRateDegPerSec < YAW_LOCK_ENGAGE_RATE_DEG_PER_SEC) {
-                    g_targetYawDeg = _imuYaw;
-                    _yawLockEngaged = true;
-                } else {
-                    g_targetYawDeg = _imuYaw;
-                }
-            }
-
-            if (_yawLockEngaged) {
-                w = computeYawLockOmega(g_targetYawDeg, _imuYaw, _imuYawRateRadPerSec, turn_speed);
-            }
-        } else {
-            g_targetYawDeg = _imuYaw;
-            _yawLockEngaged = false;
-        }
 
         velocity.valX = x;
         velocity.valY = y;
@@ -304,33 +340,33 @@ void setup(){
     WheelSerial.begin(WHEEL_UART_BAUD, SERIAL_8N1, WHEEL_UART_RX, WHEEL_UART_TX);
     ArmSerial.begin(ARM_UART_BAUD, SERIAL_8N1, ARM_UART_RX, ARM_UART_TX);
 
-    if (!_bno08x.begin_I2C()) {
-        Serial.println(F(">> BNO085 not found"));
-        _imuReady = false;
-    } else {
-        Serial.println(F(">> BNO085 Found!"));
-        if (!_bno08x.enableReport(SH2_GYRO_INTEGRATED_RV, IMU_REPORT_INTERVAL_US)) {
-            Serial.println(F(">> Could not enable gyro integrated RV"));
-        } else {
-            Serial.println(F(">> Gyro Integrated RV enabled at 400Hz"));
-        }
-        _imuReady = true;
-    }
+    beginGyro();
 }
 
 void loop() {
-    updateImu();
     unsigned long now = millis();
-
+    readGyro();
+    readSerialCommand();
+    
     if ((now - prev_imu_print_time) >= (1000 / IMU_PRINT_RATE)) {
-        if (ps5.isConnected()){
-            Serial.println("Connected!");
-        } else {
-            Serial.println("DisConnected!");
-        }
-        prev_imu_print_time = now;
-        // Serial.print("Yaw: ");
-        // Serial.println(_imuYaw);
+        Serial.print("GYRO,");
+
+        if (gyroOnline)
+            Serial.print("ONLINE");
+        else
+            Serial.print("OFFLINE");
+
+        Serial.print(",Roll=");
+        Serial.print(gyroRollDeg, 2);
+
+        Serial.print(",Pitch=");
+        Serial.print(gyroPitchDeg, 2);
+
+        Serial.print(",Yaw=");
+        Serial.print(gyroYawDeg, 2);
+
+        Serial.print(",YawRad=");
+        Serial.println(gyroHeadingRad, 4);
     }
 
     if ((now - prev_wheel_send_time) >= (1000 / COMMAND_RATE)) {

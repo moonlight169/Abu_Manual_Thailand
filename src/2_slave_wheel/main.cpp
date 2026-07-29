@@ -25,6 +25,7 @@ float g_req_linear_vel_y = 0;
 float g_req_angular_vel_z = 0;
 
 int current_rpm1 = 0, current_rpm2 = 0, current_rpm3 = 0, current_rpm4 = 0;
+Kinematics::rpm g_req_rpm;
 
 unsigned long prev_control_time = 0;
 unsigned long g_prev_command_time = 0;
@@ -132,6 +133,13 @@ void loop() {
         wheelRL.debugPWM();
         wheelRR.debugPWM();
 
+        // Debug เทียบ RPM เป้าหมาย (Req) กับ RPM จริง (Cur) ต่อล้อ
+        // ถ้าล้อไหนหมุนกลับขั้ว Cur จะไม่ยอมวิ่งเข้าหา Req เลย (มักติดลบสวนทาง) และ PWM จะค้างที่ +-255
+        Serial.print(">FL_Req:"); Serial.println(g_req_rpm.motor1);
+        Serial.print(">FR_Req:"); Serial.println(g_req_rpm.motor2);
+        Serial.print(">RL_Req:"); Serial.println(g_req_rpm.motor3);
+        Serial.print(">RR_Req:"); Serial.println(g_req_rpm.motor4);
+
         prev_debug_time = now;
     }
     
@@ -139,12 +147,12 @@ void loop() {
 
 void moveBase()
 {
-    Kinematics::rpm req_rpm = kinematics.getRPM(g_req_linear_vel_x, g_req_linear_vel_y, g_req_angular_vel_z);
+    g_req_rpm = kinematics.getRPM(g_req_linear_vel_x, g_req_linear_vel_y, g_req_angular_vel_z);
 
-    wheelFL.run(MotorFL_Pid.compute(req_rpm.motor1, current_rpm1));
-    wheelFR.run(MotorFR_Pid.compute(req_rpm.motor2, current_rpm2));
-    wheelRL.run(MotorRL_Pid.compute(req_rpm.motor3, current_rpm3));
-    wheelRR.run(MotorRR_Pid.compute(req_rpm.motor4, current_rpm4));
+    wheelFL.run(MotorFL_Pid.compute(g_req_rpm.motor1, current_rpm1));
+    wheelFR.run(MotorFR_Pid.compute(g_req_rpm.motor2, current_rpm2));
+    wheelRL.run(MotorRL_Pid.compute(g_req_rpm.motor3, current_rpm3));
+    wheelRR.run(MotorRR_Pid.compute(g_req_rpm.motor4, current_rpm4));
 }
 
 void stopBase()
