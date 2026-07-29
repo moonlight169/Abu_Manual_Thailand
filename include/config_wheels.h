@@ -28,7 +28,7 @@
 #define EncRR_A PB7
 #define EncRR_B PB6
 
-#define MAX_RPM 550
+#define MAX_RPM 800
 
 #define PULSE_PER_REV 844.4
 

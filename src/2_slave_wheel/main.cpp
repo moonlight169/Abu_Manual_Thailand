@@ -39,6 +39,10 @@ float g_prev_gyro_yaw_deg = 0;
 float current_rpm1 = 0, current_rpm2 = 0, current_rpm3 = 0, current_rpm4 = 0;
 Kinematics::rpm g_req_rpm;
 
+// PWM ที่ PID สั่งออกมาในรอบล่าสุด (ก่อนถูก smoothRun ไล่ทีละ step)
+// เก็บไว้เทียบกับ wheel.getPWM() ที่เป็นค่าจริงที่ออกขามอเตอร์
+int g_pwm_cmd1 = 0, g_pwm_cmd2 = 0, g_pwm_cmd3 = 0, g_pwm_cmd4 = 0;
+
 unsigned long prev_control_time = 0;
 unsigned long g_prev_command_time = 0;
 unsigned long prev_debug_time = 0;
@@ -145,66 +149,79 @@ void loop() {
 #if WHEEL_DEBUG
     if ((now - prev_debug_time) >= (1000 / DEBUG_RATE)){
         // คำสั่งความเร็วที่รับมาจาก Master
-        Serial.print("CMD,");
+        // Serial.print("CMD,");
 
-        Serial.print("vx=");
-        Serial.print(g_req_linear_vel_x, 2);
+        // Serial.print("vx=");
+        // Serial.print(g_req_linear_vel_x, 2);
 
-        Serial.print(",vy=");
-        Serial.print(g_req_linear_vel_y, 2);
+        // Serial.print(",vy=");
+        // Serial.print(g_req_linear_vel_y, 2);
 
-        Serial.print(",omega=");
-        Serial.print(g_req_angular_vel_z, 2);
+        // Serial.print(",omega=");
+        // Serial.print(g_req_angular_vel_z, 2);
 
-        Serial.print(",timeout=");
-        Serial.println(commandTimedOut ? 1 : 0);
+        // Serial.print(",timeout=");
+        // Serial.println(commandTimedOut ? 1 : 0);
 
-        // มุม Yaw ที่ส่งมาพร้อมคำสั่ง
-        Serial.print("GYRO,");
+        // // มุม Yaw ที่ส่งมาพร้อมคำสั่ง
+        // Serial.print("GYRO,");
 
-        Serial.print("yaw=");
-        Serial.print(g_gyro_yaw_deg, 2);
+        // Serial.print("yaw=");
+        // Serial.print(g_gyro_yaw_deg, 2);
 
-        Serial.print(",valid=");
-        Serial.println(g_gyro_valid ? 1 : 0);
+        // Serial.print(",valid=");
+        // Serial.println(g_gyro_valid ? 1 : 0);
 
-        // สถานะ heading assist (ล็อกหัวหุ่นตอนวิ่งตรง)
-        Serial.print("HEAD,");
+        // // สถานะ heading assist (ล็อกหัวหุ่นตอนวิ่งตรง)
+        // Serial.print("HEAD,");
 
-        Serial.print("active=");
-        Serial.print(g_heading_active ? 1 : 0);
+        // Serial.print("active=");
+        // Serial.print(g_heading_active ? 1 : 0);
 
-        Serial.print(",target=");
-        Serial.print(g_heading_target_deg, 2);
+        // Serial.print(",target=");
+        // Serial.print(g_heading_target_deg, 2);
 
-        Serial.print(",error=");
-        Serial.print(g_heading_error_deg, 2);
+        // Serial.print(",error=");
+        // Serial.print(g_heading_error_deg, 2);
 
-        Serial.print(",corr=");
-        Serial.println(g_heading_correction, 2);
+        // Serial.print(",corr=");
+        // Serial.println(g_heading_correction, 2);
 
-        // RPM เป้าหมาย (req) เทียบ RPM จริงจาก encoder (act) ใช้จูน PID
-        Serial.print("RPM,");
+        // Serial.print("RPM REQ,");
 
-        Serial.print("FL=");
-        Serial.print(g_req_rpm.motor1);
-        Serial.print("/");
-        Serial.print(current_rpm1, 1);
+        // Serial.print("FL=");
+        // Serial.print(g_req_rpm.motor1);
+        // Serial.print("/");
+        // Serial.print(current_rpm1, 1);
 
-        Serial.print(",FR=");
-        Serial.print(g_req_rpm.motor2);
-        Serial.print("/");
-        Serial.print(current_rpm2, 1);
+        // Serial.print(",FR=");
+        // Serial.print(g_req_rpm.motor2);
+        // Serial.print("/");
+        // Serial.print(current_rpm2, 1);
 
-        Serial.print(",RL=");
-        Serial.print(g_req_rpm.motor3);
-        Serial.print("/");
-        Serial.print(current_rpm3, 1);
+        // Serial.print(",RL=");
+        // Serial.print(g_req_rpm.motor3);
+        // Serial.print("/");
+        // Serial.print(current_rpm3, 1);
 
-        Serial.print(",RR=");
-        Serial.print(g_req_rpm.motor4);
-        Serial.print("/");
-        Serial.println(current_rpm4, 1);
+        // Serial.print(",RR=");
+        // Serial.print(g_req_rpm.motor4);
+        // Serial.print("/");
+        // Serial.println(current_rpm4, 1);
+
+        // Serial.print("COUNT,");
+
+        // Serial.print("FL=");
+        // Serial.print(wheelFL.getCount());
+
+        // Serial.print(",FR=");
+        // Serial.print(wheelFR.getCount());
+
+        // Serial.print(",RL=");
+        // Serial.print(wheelRL.getCount());
+
+        // Serial.print(",RR=");
+        // Serial.println(wheelRR.getCount());
 
         prev_debug_time = now;
     }
@@ -311,19 +328,29 @@ void moveBase()
 
     scaleRpmWithinLimit(target_rpm);
 
-    wheelFL.smoothRun(MotorFL_Pid.compute(target_rpm[0], current_rpm1));
-    wheelFR.smoothRun(MotorFR_Pid.compute(target_rpm[1], current_rpm2));
-    wheelRL.smoothRun(MotorRL_Pid.compute(target_rpm[2], current_rpm3));
-    wheelRR.smoothRun(MotorRR_Pid.compute(target_rpm[3], current_rpm4));
+    // แยกผลลัพธ์ PID ออกมาเก็บไว้ก่อนสั่งมอเตอร์ เพื่อให้ debug เห็นค่า PWM ที่สั่งจริง
+    g_pwm_cmd1 = MotorFL_Pid.compute(target_rpm[0], current_rpm1);
+    g_pwm_cmd2 = MotorFR_Pid.compute(target_rpm[1], current_rpm2);
+    g_pwm_cmd3 = MotorRL_Pid.compute(target_rpm[2], current_rpm3);
+    g_pwm_cmd4 = MotorRR_Pid.compute(target_rpm[3], current_rpm4);
+
+    wheelFL.smoothRun(g_pwm_cmd1);
+    wheelFR.smoothRun(g_pwm_cmd2);
+    wheelRL.smoothRun(g_pwm_cmd3);
+    wheelRR.smoothRun(g_pwm_cmd4);
 }
 
 void stopBase()
 {
-    // เคลียร์ RPM เป้าหมายด้วย ไม่งั้นค่าใน debug จะค้างเลขเก่าตอนหุ่นหยุด
     g_req_rpm.motor1 = 0;
     g_req_rpm.motor2 = 0;
     g_req_rpm.motor3 = 0;
     g_req_rpm.motor4 = 0;
+
+    g_pwm_cmd1 = 0;
+    g_pwm_cmd2 = 0;
+    g_pwm_cmd3 = 0;
+    g_pwm_cmd4 = 0;
 
     MotorFL_Pid.reset();
     MotorFR_Pid.reset();
