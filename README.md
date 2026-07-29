@@ -39,3 +39,6 @@ include/             # Header เฉพาะ config รายบอร์ด + 
  ├── config_wheels.h # pin/config เฉพาะ 2_slave_wheel
  └── PS5Input.h
 ```
+
+## 📖 เอกสารเพิ่มเติม
+-   [🧭 ระบบ IMU (BNO085)](docs/IMU.md) — Heading Assist, การจูน, Checklist ทดสอบ และวิธีแก้ปัญหา
