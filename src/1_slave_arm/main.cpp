@@ -77,23 +77,7 @@ long arm_getPos(){
 }
 
 void armLearnDirection(int16_t appliedPwm, bool zeroPressed){
-    long raw = encArm.getCount();
-    long delta = raw - g_arm_learn_prev_count;
-    g_arm_learn_prev_count = raw;
-
-    if (!g_arm_homed || zeroPressed){
-        return;
-    }
-    if (labs(raw) < ARM_DIR_LEARN_COUNTS || labs(delta) < ARM_DIR_LEARN_MIN_DELTA){
-        return;
-    }
-    if (appliedPwm == 0 || ((delta > 0) != (raw > 0))){
-        return;
-    }
-
-    g_arm_enc_dir = (raw > 0) ? 1 : -1;
-    g_arm_pwm_dir = (appliedPwm > 0) ? 1 : -1;
-    g_arm_dir_learned = true;
+    return; 
 }
 
 void arm_pulseStop(uint8_t reason){
@@ -127,20 +111,7 @@ bool arm_pulseBusy(){
 }
 
 bool armPulseTryFlip(unsigned long now, long absError){
-    if (g_arm_dir_learned || g_arm_pulse_flip_done){
-        return false;
-    }
-
-    g_arm_pwm_dir = -g_arm_pwm_dir;
-    g_arm_pulse_flip_done = true;
-
-    // เริ่มจับเวลาและวัดความคืบหน้าใหม่หลังกลับทิศ
-    g_arm_pulse_start_time = now;
-    g_arm_pulse_check_time = now;
-    g_arm_pulse_escape_time = now;
-    g_arm_pulse_last_abs_error = absError;
-
-    return true;
+    return false;
 }
 
 int16_t armPulseCompute(unsigned long now, bool zeroPressed, bool farPressed){
@@ -315,7 +286,6 @@ void loop(){
 
         bool armManualActive = (abs(safeArmPwm) > ARM_MANUAL_OVERRIDE_PWM);
 
-        // สุดฝั่ง 0 = สวิตช์ถูกกด หรือตำแหน่งต่ำกว่า 0 ไปแล้ว (เผื่อวิ่งเร็วจนผ่านช่วงที่สวิตช์กดไปทั้งช่วง)
         bool atZeroSide = armZeroPressed || (g_arm_homed && arm_getPos() <= 0);
 
         if (armManualActive){
@@ -324,7 +294,6 @@ void loop(){
             }
 
             // ตัดลิมิตด้วยทิศที่รู้จริง (g_arm_pwm_dir = ทิศ PWM ที่วิ่งออกจากจุด 0)
-            // ของเดิมตัดตามชื่อ front/back ซึ่งกลับด้านกับสายจริง ขับลงชนแล้วเลยไม่ตัด
             bool pwmTowardFar = ((safeArmPwm > 0) == (g_arm_pwm_dir > 0));
 
             if (atZeroSide && !pwmTowardFar) {
