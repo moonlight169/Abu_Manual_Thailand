@@ -23,7 +23,7 @@ by.Ittichai Wachiraphiphatkun
 PlatformIO ใช้ single project แยก 3 Environment ด้วย `build_src_filter` ใน `platformio.ini`
 ```text
 src/
- ├── 0_master/       # ESP32-WROOM-32 (38pin): ศูนย์กลางสั่งการ (Bluetooth PS5, UART, Relay, Limit Switch, IMU)
+ ├── 0_master/       # ESP32-WROOM-32 (38pin): ศูนย์กลางสั่งการ (Bluetooth PS5, UART, Relay, Limit Switch)
  ├── 1_slave_arm/    # STM32: ควบคุม Box + Arm (Up/Down) + Lift (Front/Back)
  └── 2_slave_wheel/  # STM32: ควบคุมล้อ Mecanum 4 ล้อ (PID loop ความถี่สูง) + อ่าน Encoder
 
@@ -39,6 +39,3 @@ include/             # Header เฉพาะ config รายบอร์ด + 
  ├── config_wheels.h # pin/config เฉพาะ 2_slave_wheel
  └── PS5Input.h
 ```
-
-## 📖 เอกสารเพิ่มเติม
--   [🧭 ระบบ IMU (BNO085)](docs/IMU.md) — Heading Assist, การจูน, Checklist ทดสอบ และวิธีแก้ปัญหา

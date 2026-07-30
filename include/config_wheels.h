@@ -66,19 +66,4 @@
 
 #define WHEEL_DEBUG 1
 
-#define HEADING_ASSIST_ENABLED 1
-
-#define HEADING_ASSIST_DIR 1
-
-#define HEAD_K_P 2.00
-#define HEAD_K_I 0.10
-#define HEAD_K_D 0.00
-
-#define HEADING_I_LIMIT 300.0f    
-#define HEADING_MAX_RPM 80.0f    
-#define HEADING_DEADBAND_DEG 1.0f   
-#define HEADING_MIN_CMD 0.05f        
-#define HEADING_OMEGA_DEADZONE 0.05f 
-#define HEADING_JUMP_LIMIT_DEG 45.0f 
-
 #endif

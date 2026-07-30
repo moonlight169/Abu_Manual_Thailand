@@ -17,7 +17,7 @@ PlatformIO ใช้ single project แยก 3 Environment ด้วย `build_
 │   │                   #   - UART 2 ช่อง คุยกับ Slave 2 ตัว (Arm, Wheel) โดยตรง
 │   │                   #   - คุม Relay 6 ตัว (Relay 1-6) ต่อ GPIO ตรงจาก Master เลย (32,33,25,26,27,14)
 │   │                   #   - อ่าน Limit Switch เพิ่มเติมต่อ GPIO ตรงจาก Master (36,39,34,35,13) ยังไม่ระบุหน้าที่แต่ละตัวใน diagram
-│   │                   #   - I2C 1 ตัวต่อ IMU (BNO08x 9-DOF) ผ่านขา 21(SDA) 22(SCL)
+│   │                   #   - ไม่มี IMU/Gyro ในระบบนี้ (ถอดออกแล้ว)
 │   ├── 1_slave_arm/    # STM32: รวมชุด Box + Arm (Up/Down) + Lift (Front/Back) ไว้บอร์ดเดียว
 │   │                   #   - มอเตอร์ผ่าน bts7960: Box, Arm, Lift (+ อีก 1 ช่องสำรองยังไม่ระบุ)
 │   │                   #   - Limit Switch: BoxFront/BoxBack, ArmFront/ArmBack, LiftUp/LiftDown (+ อีก 1 ชุดสำรองยังไม่ระบุ)

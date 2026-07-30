@@ -16,14 +16,10 @@
 // สั่งแขนวิ่งไปตำแหน่ง encoder ที่ระบุ (payload ยาวกว่า CMD_ARM/BOX/LIFT)
 #define CMD_ARM_POS 0x04
 
-#define WHEEL_FLAG_GYRO_VALID 0x01
-
 struct WheelCommand{
     float vx;
     float vy;
     float omega;
-    float yaw;
-    uint8_t flags;
 };
 
 struct WheelFrame{
@@ -95,7 +91,7 @@ struct MotorReceiver{
 
 uint8_t calculateChecksum(const uint8_t* data, uint8_t len);
 void wheelReceiverFeed(WheelReceiver &receiver, uint8_t incomingByte);
-void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega, float yaw, uint8_t flags);
+void sendWheelCommand(HardwareSerial &port, float vx, float vy, float omega);
 
 void motorReceiverFeed(MotorReceiver &receiver, uint8_t incomingByte);
 void sendArmCommand(HardwareSerial &port, int16_t arm_pwm);

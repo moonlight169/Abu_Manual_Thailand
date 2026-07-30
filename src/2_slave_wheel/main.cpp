@@ -20,21 +20,11 @@ PID MotorFR_Pid(PWM_MIN, PWM_MAX, FR_K_P, FR_K_I, FR_K_D);
 PID MotorRL_Pid(PWM_MIN, PWM_MAX, RL_K_P, RL_K_I, RL_K_D);
 PID MotorRR_Pid(PWM_MIN, PWM_MAX, RR_K_P, RR_K_I, RR_K_D);
 
-PID Heading_Pid(-HEADING_MAX_RPM, HEADING_MAX_RPM, HEAD_K_P, HEAD_K_I, HEAD_K_D);
-
 float g_req_linear_vel_x = 0;
 float g_req_linear_vel_y = 0;
 float g_req_angular_vel_z = 0;
-float g_gyro_yaw_deg = 0;
 
-bool g_gyro_valid = false;
 bool g_has_received_command = false;
-
-bool  g_heading_active = false;
-float g_heading_target_deg = 0;
-float g_heading_error_deg = 0;
-float g_heading_correction = 0;
-float g_prev_gyro_yaw_deg = 0;
 
 float current_rpm1 = 0, current_rpm2 = 0, current_rpm3 = 0, current_rpm4 = 0;
 Kinematics::rpm g_req_rpm;
@@ -65,8 +55,6 @@ void isrRR_B() { wheelRR.handleB(); }
 
 void moveBase();
 void stopBase();
-float normalizeAngleDeg(float angle_deg);
-void resetHeadingAssist();
 void scaleRpmWithinLimit(float rpm[4]);
 
 void setup(){
@@ -79,9 +67,6 @@ void setup(){
     MotorFR_Pid.limitIntegral(-WHEEL_I_LIMIT, WHEEL_I_LIMIT);
     MotorRL_Pid.limitIntegral(-WHEEL_I_LIMIT, WHEEL_I_LIMIT);
     MotorRR_Pid.limitIntegral(-WHEEL_I_LIMIT, WHEEL_I_LIMIT);
-
-    Heading_Pid.limitIntegral(-HEADING_I_LIMIT, HEADING_I_LIMIT);
-    resetHeadingAssist();
 
     wheelFL.run(0);
     wheelFR.run(0);
@@ -111,8 +96,6 @@ void loop() {
         g_req_linear_vel_x = wheelReceiver.lastCommand.vx;
         g_req_linear_vel_y = wheelReceiver.lastCommand.vy;
         g_req_angular_vel_z = wheelReceiver.lastCommand.omega;
-        g_gyro_yaw_deg = wheelReceiver.lastCommand.yaw;
-        g_gyro_valid = (wheelReceiver.lastCommand.flags & WHEEL_FLAG_GYRO_VALID) != 0;
         g_prev_command_time = millis();
         g_has_received_command = true;
         wheelReceiver.hasNewCommand = false;
@@ -127,8 +110,6 @@ void loop() {
         g_req_linear_vel_x = 0;
         g_req_linear_vel_y = 0;
         g_req_angular_vel_z = 0;
-
-        g_gyro_valid = false;
     }
 
     if ((now - prev_control_time) >= (1000 / COMMAND_RATE)){
@@ -138,7 +119,6 @@ void loop() {
         current_rpm4 = wheelRR.getRPM();
 
         if (commandTimedOut){
-            resetHeadingAssist();
             stopBase();
         } else {
             moveBase();
@@ -162,30 +142,6 @@ void loop() {
 
         // Serial.print(",timeout=");
         // Serial.println(commandTimedOut ? 1 : 0);
-
-        // // มุม Yaw ที่ส่งมาพร้อมคำสั่ง
-        // Serial.print("GYRO,");
-
-        // Serial.print("yaw=");
-        // Serial.print(g_gyro_yaw_deg, 2);
-
-        // Serial.print(",valid=");
-        // Serial.println(g_gyro_valid ? 1 : 0);
-
-        // // สถานะ heading assist (ล็อกหัวหุ่นตอนวิ่งตรง)
-        // Serial.print("HEAD,");
-
-        // Serial.print("active=");
-        // Serial.print(g_heading_active ? 1 : 0);
-
-        // Serial.print(",target=");
-        // Serial.print(g_heading_target_deg, 2);
-
-        // Serial.print(",error=");
-        // Serial.print(g_heading_error_deg, 2);
-
-        // Serial.print(",corr=");
-        // Serial.println(g_heading_correction, 2);
 
         // Serial.print("RPM REQ,");
 
@@ -229,71 +185,6 @@ void loop() {
 
 }
 
-float normalizeAngleDeg(float angle_deg)
-{
-    angle_deg = fmodf(angle_deg + 180.0f, 360.0f);
-    if (angle_deg < 0.0f)
-        angle_deg += 360.0f;
-    return angle_deg - 180.0f;
-}
-
-void resetHeadingAssist()
-{
-    g_heading_active = false;
-    g_heading_target_deg = g_gyro_yaw_deg;
-    g_heading_error_deg = 0;
-    g_heading_correction = 0;
-
-    g_prev_gyro_yaw_deg = g_gyro_yaw_deg;
-
-    Heading_Pid.reset();
-}
-
-float updateHeadingAssist()
-{
-#if HEADING_ASSIST_ENABLED == 0
-    return 0.0f;
-#else
-    if (!g_gyro_valid){
-        resetHeadingAssist();
-        return 0.0f;
-    }
-
-    float yaw_step = fabsf(normalizeAngleDeg(g_gyro_yaw_deg - g_prev_gyro_yaw_deg));
-    g_prev_gyro_yaw_deg = g_gyro_yaw_deg;
-
-    if (yaw_step > HEADING_JUMP_LIMIT_DEG){
-        resetHeadingAssist();
-        return 0.0f;
-    }
-
-    bool commandingTurn  = fabsf(g_req_angular_vel_z) > HEADING_OMEGA_DEADZONE;
-    bool commandingDrive = (fabsf(g_req_linear_vel_x) > HEADING_MIN_CMD) ||
-                           (fabsf(g_req_linear_vel_y) > HEADING_MIN_CMD);
-
-    if (commandingTurn || !commandingDrive){
-        resetHeadingAssist();
-        return 0.0f;
-    }
-
-    if (!g_heading_active){
-        g_heading_active = true;
-        g_heading_target_deg = g_gyro_yaw_deg;
-        Heading_Pid.reset();
-    }
-
-    g_heading_error_deg = normalizeAngleDeg(g_heading_target_deg - g_gyro_yaw_deg);
-
-    if (fabsf(g_heading_error_deg) < HEADING_DEADBAND_DEG){
-        g_heading_correction = 0.0f;
-        return 0.0f;
-    }
-
-    g_heading_correction = HEADING_ASSIST_DIR * (float)Heading_Pid.compute(g_heading_error_deg, 0.0f);
-    return g_heading_correction;
-#endif
-}
-
 void scaleRpmWithinLimit(float rpm[4])
 {
     float maxAbsRpm = 0.0f;
@@ -318,13 +209,11 @@ void moveBase()
 {
     g_req_rpm = kinematics.getRPM(g_req_linear_vel_x, g_req_linear_vel_y, g_req_angular_vel_z);
 
-    float trim = updateHeadingAssist();
-
     float target_rpm[4];
-    target_rpm[0] = (float)g_req_rpm.motor1 - trim; // FL
-    target_rpm[1] = (float)g_req_rpm.motor2 + trim; // FR
-    target_rpm[2] = (float)g_req_rpm.motor3 - trim; // RL
-    target_rpm[3] = (float)g_req_rpm.motor4 + trim; // RR
+    target_rpm[0] = (float)g_req_rpm.motor1; // FL
+    target_rpm[1] = (float)g_req_rpm.motor2; // FR
+    target_rpm[2] = (float)g_req_rpm.motor3; // RL
+    target_rpm[3] = (float)g_req_rpm.motor4; // RR
 
     scaleRpmWithinLimit(target_rpm);
 
@@ -356,7 +245,6 @@ void stopBase()
     MotorFR_Pid.reset();
     MotorRL_Pid.reset();
     MotorRR_Pid.reset();
-    Heading_Pid.reset();
 
     wheelFL.smoothRun(0);
     wheelFR.smoothRun(0);

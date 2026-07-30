@@ -9,11 +9,6 @@
 
 #define COMMAND_RATE 50
 
-#define SDA 21
-#define SCL 22
-
-#define BNO08X_RESET -1
-
 #define WHEEL_UART_RX 16
 #define WHEEL_UART_TX 17
 #define WHEEL_UART_BAUD 115200
@@ -29,7 +24,6 @@
 #define Relay5 27
 #define Relay6 14
 
-#define MASTER_DEBUG_GYRO 0
 #define MASTER_DEBUG_ARM 0
 
 #endif

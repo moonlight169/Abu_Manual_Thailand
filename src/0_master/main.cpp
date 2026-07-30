@@ -3,188 +3,8 @@
 #include <protocol.h>
 #include <relay.h>
 #include <PS5Input.h>
-#include <Adafruit_BNO08x.h>
 
 #include "config_esp32.h"
-
-Adafruit_BNO08x bno08x(BNO08X_RESET);
-sh2_SensorValue_t sensorValue;
-
-constexpr uint32_t IMU_REPORT_RATE_HZ = 30;
-
-constexpr uint32_t IMU_REPORT_INTERVAL_US = 1000000UL / IMU_REPORT_RATE_HZ;
-
-constexpr uint32_t GYRO_STALE_MS = 200;
-
-float gyroRollDeg = 0.0f;
-float gyroPitchDeg = 0.0f;
-float gyroRawYawDeg = 0.0f;
-float gyroYawDeg = 0.0f;
-float gyroHeadingRad = 0.0f;
-
-float gyroYawOffsetDeg = 0.0f;
-
-bool gyroOnline = false;
-uint32_t lastGyroMs = 0;
-uint32_t lastPrintMs = 0;
-
-bool gyroBeginOk = false;
-uint32_t gyroReportCount = 0;
-
-bool prevGyroValid = false;
-
-float normalizeAngleDeg(float angle)
-{
-  while (angle > 180.0f)
-    angle -= 360.0f;
-
-  while (angle < -180.0f)
-    angle += 360.0f;
-
-  return angle;
-}
-
-bool enableGyroReport()
-{
-  return bno08x.enableReport(
-      SH2_GAME_ROTATION_VECTOR,
-      IMU_REPORT_INTERVAL_US);
-}
-
-bool beginGyro()
-{
-  Wire.begin(21, 22);
-  Wire.setClock(100000);
-
-  Serial.println("Searching for BNO085...");
-
-  bool found = bno08x.begin_I2C(0x4A, &Wire);
-
-  if (!found)
-  {
-    Serial.println("BNO085 not found at 0x4A, trying 0x4B...");
-    found = bno08x.begin_I2C(0x4B, &Wire);
-  }
-
-  if (!found)
-  {
-    Serial.println("ERROR: BNO085 NOT FOUND");
-    Serial.println("Check wiring:");
-    Serial.println("VIN -> 3.3V or 5V according to module");
-    Serial.println("GND -> GND");
-    Serial.println("SDA -> GPIO21");
-    Serial.println("SCL -> GPIO22");
-
-    gyroOnline = false;
-    return false;
-  }
-
-  if (!enableGyroReport())
-  {
-    Serial.println("ERROR: Cannot enable Game Rotation Vector");
-    gyroOnline = false;
-    return false;
-  }
-
-  Serial.println("BNO085 READY");
-  Serial.println("I2C SDA=21, SCL=22");
-  Serial.print("Report interval = ");
-  Serial.print(IMU_REPORT_INTERVAL_US);
-  Serial.print(" us (");
-  Serial.print(IMU_REPORT_RATE_HZ);
-  Serial.println(" Hz)");
-  Serial.println("Send R to reset Yaw to 0");
-  Serial.println();
-
-  gyroBeginOk = true;
-  return true;
-}
-
-
-void readGyro()
-{
-  if (!gyroBeginOk)
-  {
-    gyroOnline = false;
-    return;
-  }
-
-  if (bno08x.wasReset())
-  {
-    gyroOnline = false;
-    Serial.println("WARNING: BNO085 was reset");
-
-    if (!enableGyroReport())
-    {
-      Serial.println("ERROR: Cannot restart gyro report");
-      return;
-    }
-
-    Serial.println("BNO085 report restarted");
-  }
-
-  while (bno08x.getSensorEvent(&sensorValue))
-  {
-    if (sensorValue.sensorId != SH2_GAME_ROTATION_VECTOR)
-      continue;
-    const float qr = sensorValue.un.gameRotationVector.real;
-    const float qi = sensorValue.un.gameRotationVector.i;
-    const float qj = sensorValue.un.gameRotationVector.j;
-    const float qk = sensorValue.un.gameRotationVector.k;
-
-    const float rollRad = atan2f(
-        2.0f * (qr * qi + qj * qk),
-        1.0f - 2.0f * (qi * qi + qj * qj));
-
-    float sinPitch = 2.0f * (qr * qj - qk * qi);
-    sinPitch = constrain(sinPitch, -1.0f, 1.0f);
-    const float pitchRad = asinf(sinPitch);
-
-    const float yawRad = atan2f(
-        2.0f * (qr * qk + qi * qj),
-        1.0f - 2.0f * (qj * qj + qk * qk));
-
-    gyroRollDeg = rollRad * RAD_TO_DEG;
-    gyroPitchDeg = pitchRad * RAD_TO_DEG;
-    gyroRawYawDeg = yawRad * RAD_TO_DEG;
-
-    gyroYawDeg = normalizeAngleDeg(
-        gyroRawYawDeg - gyroYawOffsetDeg);
-
-    gyroHeadingRad = gyroYawDeg * DEG_TO_RAD;
-
-    gyroOnline = true;
-    lastGyroMs = millis();
-    gyroReportCount++;
-  }
-}
-
-bool isGyroValid()
-{
-  return gyroOnline && ((millis() - lastGyroMs) < GYRO_STALE_MS);
-}
-
-void resetGyroYaw()
-{
-  gyroYawOffsetDeg = gyroRawYawDeg;
-  gyroYawDeg = 0.0f;
-  gyroHeadingRad = 0.0f;
-
-  Serial.println("BNO085 YAW RESET TO 0 DEG");
-}
-
-void readSerialCommand()
-{
-  while (Serial.available())
-  {
-    char command = Serial.read();
-
-    if (command == 'R' || command == 'r')
-    {
-      resetGyroYaw();
-    }
-  }
-}
 
 PS5Input joyInput(PS5_MAC_IN_USE);
 
@@ -246,8 +66,8 @@ HardwareSerial WheelSerial(1);
 HardwareSerial ArmSerial(2);
 
 unsigned long prev_wheel_send_time = 0;
-unsigned long prev_imu_print_time = 0;
-const unsigned long IMU_PRINT_RATE = 10;
+unsigned long prev_debug_print_time = 0;
+const unsigned long DEBUG_PRINT_RATE = 10;
 
 unsigned long g_arm_tx_count = 0;
 unsigned long g_arm_pos_tx_count = 0;
@@ -387,48 +207,16 @@ void setup(){
 
     WheelSerial.begin(WHEEL_UART_BAUD, SERIAL_8N1, WHEEL_UART_RX, WHEEL_UART_TX);
     ArmSerial.begin(ARM_UART_BAUD, SERIAL_8N1, ARM_UART_RX, ARM_UART_TX);
-
-    beginGyro();
 }
 
 void loop() {
     unsigned long now = millis();
-    readGyro();
-    readSerialCommand();
 
     while (ArmSerial.available() > 0) {
         ArmSerial.read();
     }
-    
-    if ((now - prev_imu_print_time) >= (1000 / IMU_PRINT_RATE)) {
-#if MASTER_DEBUG_GYRO
-        Serial.print("GYRO,");
 
-        Serial.print("begin=");
-        Serial.print(gyroBeginOk ? 1 : 0);
-
-        Serial.print(",online=");
-        Serial.print(gyroOnline ? 1 : 0);
-
-        Serial.print(",valid=");
-        Serial.print(isGyroValid() ? 1 : 0);
-
-        Serial.print(",rpt=");
-        Serial.print(gyroReportCount);
-
-        Serial.print(",age=");
-        Serial.print(now - lastGyroMs);
-
-        Serial.print(",roll=");
-        Serial.print(gyroRollDeg, 2);
-
-        Serial.print(",pitch=");
-        Serial.print(gyroPitchDeg, 2);
-
-        Serial.print(",yaw=");
-        Serial.println(gyroYawDeg, 2);
-#endif
-
+    if ((now - prev_debug_print_time) >= (1000 / DEBUG_PRINT_RATE)) {
 #if MASTER_DEBUG_ARM
         Serial.print("ARMTX,");
 
@@ -455,7 +243,7 @@ void loop() {
         Serial.println(g_arm_pos_tx_count);
 #endif
 
-        prev_imu_print_time = now;
+        prev_debug_print_time = now;
     }
 
     if ((now - prev_wheel_send_time) >= (1000 / COMMAND_RATE)) {
@@ -463,22 +251,8 @@ void loop() {
 
         joyInput.update();
 
-        bool gyroValid = isGyroValid();
-
-        if (gyroValid != prevGyroValid){
-            if (gyroValid)
-                Serial.println("GYRO OK -> HEADING ASSIST ENABLED");
-            else
-                Serial.println("GYRO LOST -> HEADING ASSIST DISABLED");
-
-            prevGyroValid = gyroValid;
-        }
-        
-        float yawToSend = gyroValid ? gyroYawDeg : 0.0f;
-        uint8_t wheelFlags = gyroValid ? WHEEL_FLAG_GYRO_VALID : 0;
-
         updateControl();
-        sendWheelCommand(WheelSerial, velocity.valX, velocity.valY, velocity.valW, yawToSend, wheelFlags);
+        sendWheelCommand(WheelSerial, velocity.valX, velocity.valY, velocity.valW);
 
         armControl();
         sendArmCommand(ArmSerial, arm_pwm);
