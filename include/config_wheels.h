@@ -48,19 +48,19 @@
 
 #define FL_K_P 1.0
 #define FL_K_I 0.10 
-#define FL_K_D 0.05
+#define FL_K_D 0.00
 
 #define FR_K_P 1.0
 #define FR_K_I 0.10
-#define FR_K_D 0.05
+#define FR_K_D 0.00
 
 #define RL_K_P 1.0
 #define RL_K_I 0.10
-#define RL_K_D 0.05
+#define RL_K_D 0.00
 
 #define RR_K_P 1.0
 #define RR_K_I 0.10
-#define RR_K_D 0.05
+#define RR_K_D 0.00
 
 #define WHEEL_I_LIMIT 1000.0f
 
@@ -70,8 +70,8 @@
 
 #define HEADING_ASSIST_DIR 1
 
-#define HEAD_K_P 0.50
-#define HEAD_K_I 0.00
+#define HEAD_K_P 2.00
+#define HEAD_K_I 0.10
 #define HEAD_K_D 0.00
 
 #define HEADING_I_LIMIT 300.0f    
