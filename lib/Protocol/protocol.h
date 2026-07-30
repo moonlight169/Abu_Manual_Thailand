@@ -7,10 +7,14 @@
 #define PROTOCOL_START_BYTE 0xAA
 #define WHEEL_CMD_LEN sizeof(WheelCommand)
 #define MOTOR_CMD_LEN sizeof(MotorCommand)
+#define ARM_POS_CMD_LEN sizeof(ArmPosCommand)
 
 #define CMD_ARM 0x01
 #define CMD_BOX 0x02
 #define CMD_LIFT 0x03
+
+// สั่งแขนวิ่งไปตำแหน่ง encoder ที่ระบุ (payload ยาวกว่า CMD_ARM/BOX/LIFT)
+#define CMD_ARM_POS 0x04
 
 #define WHEEL_FLAG_GYRO_VALID 0x01
 
@@ -51,6 +55,13 @@ struct MotorCommand{
     int16_t pwm;
 };
 
+// เป้าหมายตำแหน่งของแขน: target = ค่า encoder count ที่ต้องการ, pwm = ความเร็วสูงสุดที่ให้ใช้
+// (pwm = 0 แปลว่าให้ฝั่ง slave ใช้ค่าเริ่มต้นของตัวเองจาก config)
+struct ArmPosCommand{
+    int32_t target;
+    int16_t pwm;
+};
+
 struct MotorFrame{
     uint8_t start;
     uint8_t cmdId;
@@ -59,21 +70,27 @@ struct MotorFrame{
     uint8_t checksum;
 };
 
+// บัฟเฟอร์รับต้องใหญ่พอสำหรับ payload ที่ยาวที่สุดในกลุ่มนี้ (ปัจจุบันคือ ArmPosCommand)
+#define MOTOR_RX_BUF_LEN sizeof(ArmPosCommand)
+
 struct MotorReceiver{
     ParserState state = WAIT_START;
     uint8_t cmdId = 0;
-    uint8_t buffer[sizeof(MotorCommand)];
+    uint8_t buffer[MOTOR_RX_BUF_LEN];
     uint8_t bufferIndex = 0;
     uint8_t expectedLen = 0;
     MotorCommand lastArmCommand;
     MotorCommand lastBoxCommand;
     MotorCommand lastLiftCommand;
+    ArmPosCommand lastArmPosCommand;
     bool hasNewArmCommand = false;
     bool hasNewBoxCommand = false;
     bool hasNewLiftCommand = false;
+    bool hasNewArmPosCommand = false;
     unsigned long lastArmReceivedTime = 0;
     unsigned long lastBoxReceivedTime = 0;
     unsigned long lastLiftReceivedTime = 0;
+    unsigned long lastArmPosReceivedTime = 0;
 };
 
 uint8_t calculateChecksum(const uint8_t* data, uint8_t len);
@@ -84,5 +101,6 @@ void motorReceiverFeed(MotorReceiver &receiver, uint8_t incomingByte);
 void sendArmCommand(HardwareSerial &port, int16_t arm_pwm);
 void sendBoxCommand(HardwareSerial &port, int16_t box_pwm);
 void sendLiftCommand(HardwareSerial &port, int16_t lift_pwm);
+void sendArmPosCommand(HardwareSerial &port, int32_t target, int16_t pwm);
 
 #endif

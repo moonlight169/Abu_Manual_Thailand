@@ -81,22 +81,28 @@ void motorReceiverFeed(MotorReceiver &receiver, uint8_t incomingByte){
 
         case READ_CMD_ID:
             receiver.cmdId = incomingByte;
-            if (receiver.cmdId == CMD_ARM || receiver.cmdId == CMD_BOX || receiver.cmdId == CMD_LIFT){
+            if (receiver.cmdId == CMD_ARM || receiver.cmdId == CMD_BOX ||
+                receiver.cmdId == CMD_LIFT || receiver.cmdId == CMD_ARM_POS){
                 receiver.state = READ_LEN;
             } else {
                 receiver.state = WAIT_START;
             }
             break;
 
-        case READ_LEN:
+        case READ_LEN: {
             receiver.expectedLen = incomingByte;
             receiver.bufferIndex = 0;
-            if (receiver.expectedLen == MOTOR_CMD_LEN){
+
+            // แต่ละ cmdId มีความยาว payload ของตัวเอง ต้องตรงกันเท่านั้นจึงยอมรับ
+            uint8_t wantLen = (receiver.cmdId == CMD_ARM_POS) ? ARM_POS_CMD_LEN : MOTOR_CMD_LEN;
+
+            if (receiver.expectedLen == wantLen && receiver.expectedLen <= MOTOR_RX_BUF_LEN){
                 receiver.state = READ_PAYLOAD;
             } else {
                 receiver.state = WAIT_START;
             }
             break;
+        }
 
         case READ_PAYLOAD:
             receiver.buffer[receiver.bufferIndex] = incomingByte;
@@ -121,6 +127,10 @@ void motorReceiverFeed(MotorReceiver &receiver, uint8_t incomingByte){
                     memcpy(&receiver.lastLiftCommand, receiver.buffer, sizeof(MotorCommand));
                     receiver.hasNewLiftCommand = true;
                     receiver.lastLiftReceivedTime = millis();
+                } else if (receiver.cmdId == CMD_ARM_POS){
+                    memcpy(&receiver.lastArmPosCommand, receiver.buffer, sizeof(ArmPosCommand));
+                    receiver.hasNewArmPosCommand = true;
+                    receiver.lastArmPosReceivedTime = millis();
                 }
             }
             receiver.state = WAIT_START;
@@ -155,4 +165,24 @@ void sendBoxCommand(HardwareSerial &port, int16_t box_pwm){
 
 void sendLiftCommand(HardwareSerial &port, int16_t lift_pwm){
     sendMotorCommand(port, CMD_LIFT, lift_pwm);
+}
+
+void sendArmPosCommand(HardwareSerial &port, int32_t target, int16_t pwm){
+    ArmPosCommand cmd;
+
+    memset(&cmd, 0, sizeof(cmd));
+
+    cmd.target = target;
+    cmd.pwm = pwm;
+
+    uint8_t payload[ARM_POS_CMD_LEN];
+    memcpy(payload, &cmd, ARM_POS_CMD_LEN);
+
+    uint8_t checksum = calculateChecksum(payload, ARM_POS_CMD_LEN);
+
+    port.write(PROTOCOL_START_BYTE);
+    port.write(CMD_ARM_POS);
+    port.write((uint8_t)ARM_POS_CMD_LEN);
+    port.write(payload, ARM_POS_CMD_LEN);
+    port.write(checksum);
 }

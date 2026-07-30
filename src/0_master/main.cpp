@@ -103,6 +103,12 @@ bool beginGyro()
 
 void readGyro()
 {
+  if (!gyroBeginOk)
+  {
+    gyroOnline = false;
+    return;
+  }
+
   if (bno08x.wasReset())
   {
     gyroOnline = false;
@@ -180,7 +186,7 @@ void readSerialCommand()
   }
 }
 
-PS5Input joyInput(MAC_PS5_WHITE);
+PS5Input joyInput(PS5_MAC_IN_USE);
 
 struct CmdVel {
     float valX = 0.000;
@@ -206,11 +212,17 @@ int16_t lift_pwm = 0;
 int16_t arm_pwm = 0;
 int16_t box_pwm = 0;
 
-bool g_liftMode = false;
+bool touchpadMode = false;
+
+const int32_t ARM_POS_TRIANGLE = 90000;
+
+const int16_t ARM_POS_TRIANGLE_PWM = 0;
+
+const uint8_t ARM_POS_TX_REPEAT = 3;
 
 const int STICK_DEADZONE = 10;
 
-//----------------------------------------
+//---------------------------------------l-
 const float wheel_Walk_Normal = 8.00;
 const float wheel_Walk_Slow = 0.700;
 const float wheel_Walk_SuperSlow = 0.300;
@@ -238,6 +250,12 @@ unsigned long prev_imu_print_time = 0;
 const unsigned long IMU_PRINT_RATE = 10;
 
 unsigned long g_arm_tx_count = 0;
+unsigned long g_arm_pos_tx_count = 0;
+
+unsigned long prev_status_time = 0;
+unsigned long prev_status_print_time = 0;
+bool status_led_on = false;
+bool prev_ps5_connected = false;
 
 void updateControl(){
     if (ps5.isConnected()){
@@ -278,17 +296,32 @@ void updateControl(){
 }
 
 void digitalControl(){
+    if (joyInput.isPressed(PS5Input::Touchpad)) {
+        touchpadMode = true;
+    } else {
+        touchpadMode = false;
+    }
+
     if (joyInput.wasPressed(PS5Input::Cross)) {
         relay3.toggle();
-    } 
+    }
     
     if (joyInput.wasPressed(PS5Input::Square)) {
         relay2.toggle();
     }
 
     if (joyInput.wasPressed(PS5Input::Triangle)) {
-        relay5.toggle();
-    } 
+        if (touchpadMode) {
+            // กดทีเดียวจบ: slave จะวิ่งไปตำแหน่งเองต่อ ปล่อย touchpad ได้เลยไม่ต้องกดค้าง
+            for (uint8_t i = 0; i < ARM_POS_TX_REPEAT; i++) {
+                sendArmPosCommand(ArmSerial, ARM_POS_TRIANGLE, ARM_POS_TRIANGLE_PWM);
+            }
+
+            g_arm_pos_tx_count++;
+        } else {
+            relay5.toggle();
+        }
+    }
 
     if (joyInput.wasPressed(PS5Input::Circle)) {
         relay4.toggle();
@@ -300,12 +333,6 @@ void digitalControl(){
 
     if (joyInput.wasPressed(PS5Input::Options)) {
         relay6.toggle();
-    }
-
-    if (joyInput.isPressed(PS5Input::Touchpad)) {
-        g_liftMode = true;
-    } else {
-        g_liftMode = false;
     }
 }
 
@@ -331,7 +358,7 @@ void armControl(){
         if (abs(ly) < STICK_DEADZONE) ly = 0;
         if (abs(ry) < STICK_DEADZONE) ry = 0;
 
-        if (g_liftMode) {
+        if (touchpadMode) {
             lift_pwm = map(ry, -128, 127, -lift_speed, lift_speed);
             arm_pwm = 0;
             box_pwm = 0;
@@ -350,7 +377,6 @@ void armControl(){
 void setup(){
     Serial.begin(115200);
     joyInput.begin();
-    Serial.print("start");
 
     relay1.write(1);
     relay2.write(1);
@@ -370,8 +396,6 @@ void loop() {
     readGyro();
     readSerialCommand();
 
-    // ยังไม่มี protocol ขากลับจาก arm แต่ระบายบัฟเฟอร์ทิ้งไว้กันค้าง
-    // ถ้าวันหลังมีสัญญาณรบกวนเข้ามา บัฟเฟอร์จะไม่เต็มแล้วบล็อกการรับของจริง
     while (ArmSerial.available() > 0) {
         ArmSerial.read();
     }
@@ -421,7 +445,14 @@ void loop() {
         Serial.print(box_pwm);
 
         Serial.print(",lift=");
-        Serial.println(lift_pwm);
+        Serial.print(lift_pwm);
+
+        Serial.print(",pad=");
+        Serial.print(touchpadMode ? 1 : 0);
+
+        // จำนวนครั้งที่ส่งคำสั่งวิ่งไปตำแหน่ง (Touchpad + สามเหลี่ยม)
+        Serial.print(",posTx=");
+        Serial.println(g_arm_pos_tx_count);
 #endif
 
         prev_imu_print_time = now;

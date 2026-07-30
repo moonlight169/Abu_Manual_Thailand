@@ -3,6 +3,10 @@
 
 #define MAC_PS5_WHITE "D4:2F:4B:00:DB:AB"
 #define MAC_PS5_RED "0c:27:56:1a:0c:6e"
+
+// จอยที่ใช้อยู่ตอนนี้ สลับเป็น MAC_PS5_RED ถ้าเปลี่ยนไปใช้ตัวแดง
+#define PS5_MAC_IN_USE MAC_PS5_WHITE
+
 #define COMMAND_RATE 50
 
 #define SDA 21
