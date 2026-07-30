@@ -363,8 +363,8 @@ void armControl(){
             arm_pwm = 0;
             box_pwm = 0;
         } else {
-            arm_pwm = map(ry, -128, 127, arm_speed, -arm_speed);
-            box_pwm = map(ly, -128, 127, -box_speed, box_speed);
+            arm_pwm = map(ly, -128, 127, arm_speed, -arm_speed);
+            box_pwm = map(ry, -128, 127, -box_speed, box_speed);
             lift_pwm = 0;
         }
     } else {
